@@ -45,7 +45,7 @@ const CARDS = [
 // sec: 段落；sit: 情境說明（出現在題目上，不能洩漏答案）
 const LINES = {
   // 01 開場與分組
-  welcome:   { role: 'host', sec: '01 開場', type: 'base', en: 'Welcome to our school!', zh: '歡迎來到我們學校！', sit: '熊本北的小動物訪問團走到攤位前了。先熱情地歡迎他們！' },
+  welcome:   { role: 'host', sec: '01 開場', type: 'base', en: 'Welcome to our game!', zh: '歡迎來玩我們的遊戲！', sit: '熊本北的小動物訪問團來到你的關卡了，先熱情地歡迎他們！' },
   havefun:   { role: 'host', sec: '01 開場', type: 'ext', en: "Let's have fun together!", zh: '我們一起玩得開心吧！', sit: '大家互相說完「よろしくお願いします」，接一句英文讓氣氛熱起來。' },
   playgame:  { role: 'host', sec: '01 開場', type: 'base', en: "Let's play a game!", zh: '我們來玩個遊戲吧！', sit: '告訴大家：我們要開始玩遊戲囉！' },
   teams:     { role: 'host', sec: '01 開場', type: 'base', en: 'This is Team A. This is Team B.', zh: '這邊是 A 隊，這邊是 B 隊。', sit: '分好兩邊了，指著左右兩群告訴他們隊名。' },
