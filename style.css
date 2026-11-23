@@ -197,6 +197,13 @@ h1, h2, h3 { margin: 0; }
 .fb.ok { background: rgba(234,246,239,.9); }
 .fb.close { background: rgba(255,246,214,.92); }
 .fb.bad { background: rgba(253,235,238,.92); }
+.fb.free { background: rgba(230,240,252,.92); }
+.xtra { background: rgba(170,222,192,.55); border-radius: 4px; padding: 0 2px; }
+.diffw { text-decoration: underline wavy #E8A33C; text-underline-offset: 3px; }
+.gram { font-size: 14px; line-height: 1.6; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.75); border: 1.5px dashed rgba(120,100,90,.25); }
+.gram ul { margin: 6px 0; padding-left: 18px; }
+.gram li { margin-bottom: 4px; }
+.gram-ok { color: #24613F; }
 .fb .correct { font-family: var(--en); font-size: 20px; font-weight: 600; line-height: 1.4; }
 .fb .yours { font-size: 14px; color: var(--sub); font-family: var(--en); }
 .mark { background: linear-gradient(transparent 45%, #FBE38A 45%); padding: 0 2px; }

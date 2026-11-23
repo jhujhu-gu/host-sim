@@ -20,7 +20,7 @@ const numWord = n => NUM_WORDS[n] || String(n);
 
 /* ---------- storage ---------- */
 const KEY = 'gz-host-sim-v1';
-let DB = { history: { host: [], helper: [] }, stats: {}, stickers: [], autoSpeak: true };
+let DB = { history: { host: [], helper: [] }, stats: {}, stickers: [], autoSpeak: true, grammarOn: true };
 try { Object.assign(DB, JSON.parse(localStorage.getItem(KEY)) || {}); } catch (e) { /* 無法讀取就用預設 */ }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(DB)); } catch (e) { /* ignore */ } };
 
@@ -265,20 +265,88 @@ function grade(st, text) {
     const g = off === 0 ? 'ok' : off === 1 && exp.size > 2 ? 'close' : 'bad';
     return { grade: g, ratio: 1 - off / Math.max(exp.size, 1), target: st.en, missing, extra, colorsMode: true };
   }
-  let best = { ratio: -1 };
+  // 允許自由發揮：只要台詞的字都有依序說到，前後多說的話不扣分
+  let best = { key: -1 };
   for (const t of [st.en, ...(st.alts || [])]) {
     const tw = norm(t);
     let r = ratio(tw, user);
     if (st.mode === 'brand') r = Math.max(r, ratio(tw.join('').split(''), user.join('').split('')));
-    if (r > best.ratio) best = { ratio: r, target: t };
+    const [mt] = lcsPairs(tw, user);
+    const cov = tw.length ? mt.size / tw.length : 0;
+    const key = Math.max(cov, r) + r * .01;
+    if (key > best.key) best = { key, ratio: r, cov, target: t };
   }
-  let g = best.ratio >= 0.999 ? 'ok' : best.ratio >= 0.7 ? 'close' : 'bad';
+  let g = best.cov >= 0.999 ? 'ok' : (best.ratio >= 0.7 || best.cov >= 0.75) ? 'close' : 'bad';
   if (st.mode === 'brand' && best.ratio >= 0.8 && user.slice(0, 2).join(' ') === 'this is') g = 'ok';
   const e = tokens(best.target), u = tokens(text);
   const [me, mu] = lcsPairs(e.flat, u.flat);
   const missing = e.flat.filter((_, i) => !me.has(i));
   const extra = u.flat.filter((_, i) => !mu.has(i));
-  return { grade: g, ratio: best.ratio, target: best.target, missing, extra };
+  return { grade: g, ratio: Math.max(best.ratio, best.cov), target: best.target, missing, extra, words: user.length };
+}
+
+/* ---------- 文法檢查（LanguageTool 免費服務，需要網路） ---------- */
+const GRAM_CAT = { GRAMMAR: '文法', TYPOS: '拼字', CONFUSED_WORDS: '易混淆字', COLLOCATIONS: '搭配用法', REDUNDANCY: '重複', STYLE: '用語', SEMANTICS: '語意', MISC: '其他' };
+const gramCache = {};
+async function checkGrammar(text, st) {
+  const k = text.trim();
+  if (gramCache[k]) return gramCache[k];
+  const ctl = new AbortController(); const tm = setTimeout(() => ctl.abort(), 8000);
+  try {
+    const body = new URLSearchParams({
+      text: k, language: 'en-US',
+      disabledCategories: 'CASING,PUNCTUATION,TYPOGRAPHY',
+      disabledRules: 'UPPERCASE_SENTENCE_START,PUNCTUATION_PARAGRAPH_END,WHITESPACE_RULE,COMMA_PARENTHESIS_WHITESPACE,EN_QUOTES,DASH_RULE,SENTENCE_FRAGMENT',
+    });
+    const r = await fetch('https://api.languagetool.org/v2/check', { method: 'POST', body, signal: ctl.signal });
+    if (!r.ok) throw new Error('http ' + r.status);
+    const data = await r.json();
+    // 品牌名、人名不算拼字錯
+    const known = new Set(norm([st.en, ...(st.alts || []), ...CARDS.map(c => c.say + ' ' + c.alts.join(' ')), 'ZLCHS Kumamoto Kita Zhong Li Taoyuan Taiwanese'].join(' ')));
+    const issues = (data.matches || []).filter(m => {
+      const word = k.substr(m.offset, m.length);
+      if (m.rule && m.rule.category && m.rule.category.id === 'TYPOS' && norm(word).every(w => known.has(w))) return false;
+      return true;
+    }).map(m => ({
+      off: m.offset, len: m.length, word: k.substr(m.offset, m.length),
+      cat: GRAM_CAT[m.rule?.category?.id] || '提醒',
+      msg: m.shortMessage || m.message,
+      fix: (m.replacements || []).slice(0, 3).map(x => x.value),
+    }));
+    let fixed = k;
+    [...issues].sort((a, b) => b.off - a.off).forEach(i => { if (i.fix[0] != null) fixed = fixed.slice(0, i.off) + '\u0001' + i.fix[0] + '\u0002' + fixed.slice(i.off + i.len); });
+    const res = { ok: true, issues, fixed };
+    gramCache[k] = res; return res;
+  } catch (e) {
+    return { ok: false };
+  } finally { clearTimeout(tm); }
+}
+function gramHTML(g) {
+  if (!g) return '<span class="muted">文法檢查中⋯</span>';
+  if (!g.ok) return '<span class="muted">文法檢查暫時連不上（需要網路），這次先略過。</span>';
+  if (!g.issues.length) return '<b class="gram-ok">文法檢查：沒有發現問題</b>';
+  const fixed = esc(g.fixed).replace(/\u0001/g, '<span class="mark">').replace(/\u0002/g, '</span>');
+  return `<b>文法檢查：有 ${g.issues.length} 個地方可以注意</b>
+<ul>${g.issues.map(i => `<li><span class="pill" style="padding:1px 8px;font-size:12px">${esc(i.cat)}</span> <span class="en">「${esc(i.word)}」${i.fix.length ? ` → <b>${i.fix.map(esc).join(' / ')}</b>` : ''}</span><br><span class="muted en" style="font-size:13px">${esc(i.msg)}</span></li>`).join('')}</ul>
+<div class="en" style="font-size:15px">修正後：${fixed}</div>`;
+}
+function runGrammar(idx, text) {
+  if (!DB.grammarOn) return;
+  const st = S.steps[idx];
+  checkGrammar(text, st).then(g => {
+    const r = S.res[idx];
+    if (r && r.user === text) {
+      r.gram = g;
+      // 和台詞差很多、但文法正確又說了完整一句 → 算「自由發揮」
+      if (g.ok && !g.issues.length && r.grade === 'bad' && (r.words || 0) >= 3 && !r.colorsMode) { r.grade = 'free'; }
+    }
+    if (S.answered && S.answered.text === text && S.i === idx) {
+      S.answered.gram = g;
+      if (r && r.grade === 'free' && S.answered.gr.grade === 'bad' && !S.retrying) S.answered.gr.grade = 'free';
+      else if (S.retrying && g.ok && !g.issues.length && S.answered.gr.grade === 'bad' && (S.answered.gr.words || 0) >= 3 && !S.answered.gr.colorsMode) S.answered.gr.grade = 'free';
+      renderPlay();
+    }
+  });
 }
 function diffHTML(st, text, gr) {
   if (gr.colorsMode) {
@@ -293,7 +361,8 @@ function diffHTML(st, text, gr) {
   e.flat.forEach((_, i) => { if (!me.has(i)) badE.add(e.owner[i]); });
   u.flat.forEach((_, i) => { if (mu.has(i)) okU.add(u.owner[i]); });
   const exp = e.toks.map((t, i) => badE.has(i) ? `<span class="mark">${esc(t)}</span>` : esc(t)).join(' ');
-  const you = u.toks.map((t, i) => okU.has(i) ? esc(t) : `<span class="del">${esc(t)}</span>`).join(' ');
+  const xc = gr.grade === 'ok' ? 'xtra' : 'diffw';
+  const you = u.toks.map((t, i) => okU.has(i) ? esc(t) : `<span class="${xc}">${esc(t)}</span>`).join(' ');
   return { exp, you };
 }
 const firstLetters = en => en.split(/\s+/).map(w => w.replace(/[A-Za-z0-9]+/g, m => m[0] + '_'.repeat(Math.max(m.length - 1, 0)))).join('  ');
@@ -419,7 +488,7 @@ ${score}${board}${side}${host}${teamHTML}</div>`;
    ========================================================= */
 let S = { role: 'host', listening: false };
 let ROLE = 'host';
-const ITEM_SCORE = { ok: 1, close: .7, bad: .25, skip: 0 };
+const ITEM_SCORE = { ok: 1, close: .7, free: .6, bad: .25, skip: 0 };
 function itemScore(r) {
   let s = ITEM_SCORE[r.grade] ?? 0;
   if (r.hints >= 1) s -= .15;
@@ -464,13 +533,14 @@ function submit(text) {
   if (!text) { toast('先說或打一句英文喔'); return; }
   const st = S.steps[S.i];
   const gr = grade(st, text);
-  S.res[S.i] = { key: st.key, sec: st.sec, type: st.type, en: st.en, zh: st.zh, user: text, grade: gr.grade, ratio: gr.ratio, missing: gr.missing, extra: gr.extra, hints: Math.min(S.hint, 2), revealed: S.revealed, target: gr.target, colorsMode: !!gr.colorsMode, mode: st.mode, colorKeys: st.colorKeys };
+  S.res[S.i] = { key: st.key, sec: st.sec, type: st.type, en: st.en, zh: st.zh, user: text, grade: gr.grade, ratio: gr.ratio, missing: gr.missing, extra: gr.extra, hints: Math.min(S.hint, 2), revealed: S.revealed, target: gr.target, colorsMode: !!gr.colorsMode, mode: st.mode, colorKeys: st.colorKeys, words: gr.words };
   const clean = gr.grade === 'ok' && !S.hint && !S.revealed;
   S.combo = clean ? S.combo + 1 : 0; S.maxCombo = Math.max(S.maxCombo, S.combo);
   const sk = `${S.role}:${st.key}`; const v = DB.stats[sk] || { n: 0, ok: 0, hint: 0 };
   v.n++; if (clean) v.ok++; if (S.hint || S.revealed) v.hint++; DB.stats[sk] = v; save();
   S.answered = { text, gr };
   renderPlay();
+  runGrammar(S.i, text);
   if (DB.autoSpeak) setTimeout(() => speak(st.en), 250);
 }
 function retry() {
@@ -524,16 +594,19 @@ ${SR ? '' : '<div class="envnote">這個瀏覽器不支援語音辨識，請用�
   } else {
     const { text, gr } = S.answered;
     const d = diffHTML(st, text, gr);
-    const cls = { ok: 'ok', close: 'close', bad: 'bad' }[gr.grade];
-    const verdict = { ok: '完全正確！', close: '意思對了，有小地方不同', bad: '再練習一下' }[gr.grade];
+    const cls = { ok: 'ok', close: 'close', free: 'free', bad: 'bad' }[gr.grade];
+    const hasExtra = !gr.colorsMode && gr.extra && gr.extra.length;
+    const verdict = { ok: hasExtra ? '完全正確！還加了自己的話' : '完全正確！', close: '意思對了，和台詞有小地方不同', free: '自由發揮！文法沒問題', bad: '和台詞差比較多，參考看看' }[gr.grade];
     const usedHint = S.hint || S.revealed;
     const mark = gr.grade === 'ok' ? (usedHint ? '（有用提示）' : '+1 好感') : '';
     panel = `${sit}
 <div class="card fb ${cls}">
 <div class="verdict"><b>${verdict}<span class="muted" style="font-weight:400;font-size:13px"> ${mark}</span></b><button class="btn" id="say" style="min-height:38px;padding:0 12px;box-shadow:none">${ic('sound')}聽發音</button></div>
-<div class="correct">${d.exp}</div>
+<div class="muted" style="font-size:12px;font-weight:700">建議台詞</div><div class="correct" style="margin-top:-6px">${d.exp}</div>
 <div class="muted" style="font-size:14px">${esc(st.zh)}</div>
-${gr.grade !== 'ok' ? `<div class="yours">你說：${d.you}</div>` : ''}
+${gr.grade !== 'ok' || hasExtra ? `<div class="yours">你說：${d.you}${gr.grade === 'ok' && hasExtra ? '<br><span style="font-size:12px">綠底是你自己多說的部分，不扣分</span>' : (!gr.colorsMode && gr.extra && gr.extra.length ? '<br><span style="font-size:12px">波浪線是和台詞不一樣的地方</span>' : '')}</div>` : ''}
+${gr.grade === 'free' ? '<div class="muted" style="font-size:13px">系統只能檢查文法，沒辦法判斷意思。請對照上面的建議台詞，確認意思一樣喔。</div>' : ''}
+${DB.grammarOn && !gr.colorsMode ? `<div class="gram">${gramHTML(S.answered.gram)}</div>` : ''}
 ${st.fact ? `<div class="fact"><b>Fun Fact</b>　<span class="en">${esc(st.fact)}</span></div>` : ''}
 <div class="acts">${gr.grade !== 'ok' ? `<button class="btn" id="again">${ic('repeat')}再說一次</button>` : ''}<button class="btn pink" id="next">${S.i >= S.steps.length - 1 ? '看總結報告' : '下一題'}${ic('next')}</button></div>
 </div>`;
@@ -566,10 +639,20 @@ submit = function (text) {
     const st = S.steps[S.i]; const gr = grade(st, String(text || '').trim());
     if (!String(text || '').trim()) { toast('先說或打一句英文喔'); return; }
     S.answered = { text: String(text).trim(), gr }; S.retrying = gr.grade !== 'ok';
-    renderPlay(); if (DB.autoSpeak) setTimeout(() => speak(st.en), 250); return;
+    renderPlay(); retryGrammar(S.answered.text); if (DB.autoSpeak) setTimeout(() => speak(st.en), 250); return;
   }
   S.retrying = false; _submit(text);
 };
+function retryGrammar(text) {
+  if (!DB.grammarOn) return;
+  const idx = S.i; const st = S.steps[idx];
+  checkGrammar(text, st).then(g => {
+    if (!(S.answered && S.answered.text === text && S.i === idx)) return;
+    S.answered.gram = g;
+    if (g.ok && !g.issues.length && S.answered.gr.grade === 'bad' && (S.answered.gr.words || 0) >= 3 && !S.answered.gr.colorsMode) S.answered.gr.grade = 'free';
+    renderPlay();
+  });
+}
 const _next = next;
 next = function () { S.retrying = false; _next(); };
 
@@ -612,6 +695,7 @@ function finish() {
   res.forEach(r => { const a = secAgg[r.sec] || (secAgg[r.sec] = { s: 0, n: 0 }); a.s += itemScore(r); a.n++; });
   const weakSec = Object.entries(secAgg).filter(([, a]) => a.n >= 2).map(([k, a]) => [k, a.s / a.n]).sort((a, b) => a[1] - b[1])[0];
   // 需要注意的句子
+  const gramList = res.filter(r => r.gram && r.gram.ok && r.gram.issues.length).slice(0, 6);
   const mist = res.filter(r => r.grade !== 'ok' || r.hints || r.revealed).sort((a, b) => itemScore(a) - itemScore(b)).slice(0, 8);
   // 紀錄
   const hist = DB.history[S.role] || (DB.history[S.role] = []);
@@ -644,9 +728,10 @@ ${newSticker ? `<div class="newsticker"><img src="${IMG(newSticker + '-happy')}"
 <h3>需要注意的句子</h3>
 ${mist.length ? mist.map(r => {
     const d = r.grade === 'skip' ? { exp: esc(r.en), you: '（跳過）' } : diffHTML({ en: r.en }, r.user, { colorsMode: r.colorsMode, missing: r.missing, extra: r.extra, target: r.target || r.en });
-    const why = r.grade === 'skip' ? '跳過' : r.revealed ? '看了答案' : r.hints ? `用了提示 ${r.hints}` : r.grade === 'close' ? '小地方不同' : '需要再練';
+    const why = r.grade === 'skip' ? '跳過' : r.grade === 'free' ? '自由發揮（請對照台詞）' : r.revealed ? '看了答案' : r.hints ? `用了提示 ${r.hints}` : r.grade === 'close' ? '小地方不同' : '需要再練';
     return `<div class="mis"><small><span>${esc(r.sec)}</span><span>${why}</span></small>${r.grade === 'ok' ? '' : `<span class="y">你說：${d.you}</span>`}<span class="c">${d.exp}</span><span class="muted" style="font-size:12px">${esc(r.zh)}</span></div>`;
   }).join('') : '<div class="mis"><span>這輪沒有需要注意的句子，全部一次就說對了！</span></div>'}
+${gramList.length ? `<h3>文法提醒</h3>${gramList.map(r => `<div class="mis"><span class="y">你說：${esc(r.user)}</span>${r.gram.issues.map(i => `<span style="font-size:14px"><span class="pill" style="padding:1px 8px;font-size:12px">${esc(i.cat)}</span> <span class="en">「${esc(i.word)}」${i.fix.length ? ` → <b>${i.fix.map(esc).join(' / ')}</b>` : ''}</span></span>`).join('')}</div>`).join('')}` : ''}
 ${chips.length ? `<h3>常犯小錯</h3><div class="chips">${chips.map(([k, n]) => `<span class="pill">${esc(k)} ×${n}</span>`).join('')}</div>` : ''}
 <div class="card" style="display:flex;flex-direction:column;gap:6px"><b>下次建議</b><span style="font-size:15px;line-height:1.6">${esc(tip)}</span></div>
 <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap">
@@ -692,12 +777,14 @@ function renderStart() {
 </div>
 <div style="display:flex;flex-direction:column;gap:6px"><b style="font-size:14px">貼紙收集 ${DB.stickers.length} / 9</b><div class="stickers">${ALL_ANIMALS.map(a => `<div class="sticker${DB.stickers.includes(a) ? '' : ' off'}" title="${ZH_NAME[a]}"><img src="${IMG(a + '-n')}" alt="${DB.stickers.includes(a) ? ZH_NAME[a] : '未收集'}"></div>`).join('')}</div><span class="muted" style="font-size:12px">一輪 8 題以上、好感度 6 顆心以上，就能抽一張新貼紙。</span></div>
 ${lastH ? `<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px"><span style="font-size:14px">上次（${ROLE === 'host' ? '關主' : '小幫手'}）</span>${heartsHTML(lastH.hearts)}<span class="en" style="font-weight:700">${lastH.acc}%</span></div>` : ''}
-<div class="envnote">${SR ? '按麥克風用說的作答，或直接打字。第一次使用時，瀏覽器會詢問麥克風權限，請按「允許」。' : '這個瀏覽器不支援語音辨識，可以用打字作答。想用說的，iPhone 請用 Safari、Android 請用 Chrome 開啟。'}</div>
+<label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" id="gramOn" ${DB.grammarOn ? 'checked' : ''} style="width:20px;height:20px">答完幫我檢查文法（需要網路，會把句子送到 LanguageTool 免費服務檢查）</label>
+<div class="envnote">${SR ? '可以照台詞說，也可以自由多說一點：只要台詞的內容有說到，多加的話不扣分。按麥克風用說的作答，或直接打字。第一次使用時，瀏覽器會詢問麥克風權限，請按「允許」。' : '這個瀏覽器不支援語音辨識，可以用打字作答。想用說的，iPhone 請用 Safari、Android 請用 Chrome 開啟。'}</div>
 <div style="display:flex;justify-content:space-between;align-items:center"><button class="linkbtn" id="clear">清除練習紀錄</button><span class="muted" style="font-size:12px">© 2026 啾啾菇</span></div>
 </div>`;
   document.querySelectorAll('.role').forEach(b => b.onclick = () => { ROLE = b.dataset.role; renderStart(); });
   document.querySelectorAll('.mode').forEach(b => b.onclick = () => startRun(b.dataset.mode));
-  $('#clear').onclick = () => { if (confirm('確定要清除所有練習紀錄和貼紙嗎？')) { DB = { history: { host: [], helper: [] }, stats: {}, stickers: [], autoSpeak: DB.autoSpeak }; save(); renderStart(); toast('紀錄已清除'); } };
+  $('#gramOn').onchange = e => { DB.grammarOn = e.target.checked; save(); };
+  $('#clear').onclick = () => { if (confirm('確定要清除所有練習紀錄和貼紙嗎？')) { DB = { history: { host: [], helper: [] }, stats: {}, stickers: [], autoSpeak: DB.autoSpeak, grammarOn: DB.grammarOn }; save(); renderStart(); toast('紀錄已清除'); } };
   window.scrollTo(0, 0);
 }
 
