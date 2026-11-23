@@ -235,3 +235,6 @@ h1, h2, h3 { margin: 0; }
 .newsticker { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 16px; background: linear-gradient(120deg, #FFF3C9, #FDE3EA); }
 .newsticker img { width: 54px; }
 .footer { text-align: center; font-size: 12px; color: var(--sub); margin-top: 18px; }
+
+.kbtip { flex: none; max-width: 100%; padding: 12px 14px; border-radius: 16px; background: rgba(246,193,204,.35); font-size: 15px; line-height: 1.6; }
+@media (min-width: 861px) { .kbtip { max-width: 200px; } }

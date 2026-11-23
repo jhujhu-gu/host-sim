@@ -380,8 +380,7 @@ function speak(text) {
   try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(text); u.lang = 'en-US'; u.rate = .92; if (voiceEn) u.voice = voiceEn; speechSynthesis.speak(u); } catch (e) { /* ignore */ }
 }
 function toggleMic() {
-  if (!SR) { toast('這個瀏覽器不支援語音辨識，請改用打字作答'); return; }
-  if (S.srBlocked) { const inp = $('#ans'); if (inp) inp.focus(); toast('請按鍵盤上的麥克風（聽寫）說英文，說完按送出'); return; }
+  if (!SR || DB.micMode === 'keyboard') { const inp = $('#ans'); if (inp) inp.focus(); return; }
   if (S.listening && rec) { rec.stop(); return; }
   try { speechSynthesis.cancel(); } catch (e) { /* ignore */ }
   rec = new SR(); rec.lang = 'en-US'; rec.interimResults = true; rec.maxAlternatives = 5; rec.continuous = false;
@@ -399,17 +398,10 @@ function toggleMic() {
   rec.onerror = e => {
     S.listening = false; updateMic();
     const code = e.error || 'unknown';
-    if (code === 'not-allowed') toast('麥克風被擋住了（not-allowed）。請到 Safari 網站設定把麥克風改成「允許」，再重新整理。');
-    else if (code === 'service-not-allowed') {
-      S.srBlocked = true;
-      toast('這支手機的網頁語音辨識被擋住了。請點輸入框，改用鍵盤上的麥克風（聽寫）說英文，說完按送出。');
-      const inp = $('#ans'); if (inp) inp.focus();
-    }
-    else if (code === 'no-speech') toast('沒有聽到聲音，再按一次麥克風試試');
-    else if (code === 'audio-capture') toast('抓不到麥克風（audio-capture），可能被別的 App 占用，關掉其他 App 再試。');
-    else if (code === 'network') toast('語音辨識需要網路（network），請確認網路後再試。');
-    else if (code !== 'aborted') toast(`語音辨識出了點問題（${code}），可以再試一次或改用打字`);
-    const l = $('#listening'); if (l) l.textContent = code === 'aborted' ? '' : `語音錯誤代碼：${code}`;
+    if (code === 'aborted') return;
+    if (code === 'no-speech') { const l = $('#listening'); if (l) l.textContent = '沒有聽到聲音，再按一次試試。'; return; }
+    // 其他錯誤：這支手機的網頁語音不能用 → 自動改成鍵盤聽寫模式，之後不再跳提醒
+    setKeyboardMode(code);
   };
   rec.onend = () => {
     S.listening = false; updateMic();
@@ -423,6 +415,25 @@ function toggleMic() {
     }
   };
   try { rec.start(); S.listening = true; updateMic(); } catch (e) { toast('麥克風啟動失敗，請再按一次'); }
+}
+function setKeyboardMode(code) {
+  const first = DB.micMode !== 'keyboard';
+  DB.micMode = 'keyboard'; DB.micCode = code; save();
+  if (first) toast('已切換成「鍵盤聽寫」模式：之後點輸入框，按鍵盤上的麥克風說英文就好。');
+  if (S.steps) { keepInput(); const inp = $('#ans'); if (inp) inp.focus(); }
+  else if ($('.start')) renderStart();
+}
+function micTest() {
+  if (!SR) { setKeyboardMode('unsupported'); return; }
+  const box = $('#mictest'); if (box) box.innerHTML = '<b>請說：</b><span class="en">Hello, nice to meet you!</span><div class="muted" style="font-size:13px">聆聽中⋯</div>';
+  let heard = '';
+  try {
+    const t = new SR(); t.lang = 'en-US'; t.interimResults = true; t.continuous = false;
+    t.onresult = e => { heard = [...e.results].map(r => r[0].transcript).join(' '); if (box) box.querySelector('.muted').textContent = '聽到：' + heard; };
+    t.onerror = e => { if (e.error === 'no-speech') { if (box) box.querySelector('.muted').textContent = '沒有聽到聲音，請再測一次。'; return; } if (e.error !== 'aborted') setKeyboardMode(e.error); };
+    t.onend = () => { if (heard) { DB.micMode = 'web'; save(); toast('麥克風可以用！'); renderStart(); } };
+    t.start();
+  } catch (e) { setKeyboardMode('start-failed'); }
 }
 function updateMic() {
   const m = $('#mic'); if (!m) return;
@@ -590,7 +601,7 @@ function renderPlay() {
 <div class="card answer">
 <span style="font-weight:700">你要說什麼？</span>
 <div class="row">
-<button class="mic${S.listening ? ' on' : ''}" id="mic" aria-label="開始說話">${ic('mic')}<span>按我說話</span></button>
+${DB.micMode === 'keyboard' || !SR ? '<div class="kbtip">點輸入框，按<b>鍵盤上的麥克風</b>說英文，說完按送出。</div>' : `<button class="mic${S.listening ? ' on' : ''}" id="mic" aria-label="開始說話">${ic('mic')}<span>按我說話</span></button>`}
 <form class="typebox" id="form" autocomplete="off"><label for="ans" class="sr">輸入英文</label><input id="ans" placeholder="或輸入英文⋯" enterkeyhint="send" autocapitalize="sentences" spellcheck="false"><button class="btn mint" type="submit" aria-label="送出">${ic('send')}</button></form>
 </div>
 <div class="listening" id="listening"></div>
@@ -601,7 +612,7 @@ function renderPlay() {
 <button class="btn" id="skip" aria-label="跳過這題" style="flex:none;width:48px">${ic('skip')}</button>
 </div>
 ${hintTxt ? `<div class="hintbox">${hintTxt}</div>` : ''}
-${SR ? '' : '<div class="envnote">這個瀏覽器不支援語音辨識，請用打字作答（iPhone 建議用 Safari，Android 建議用 Chrome）。</div>'}
+
 </div>`;
   } else {
     const { text, gr } = S.answered;
@@ -628,7 +639,7 @@ ${st.fact ? `<div class="fact"><b>Fun Fact</b>　<span class="en">${esc(st.fact)
   $('#home').onclick = () => { if (S.res.filter(Boolean).length >= 3 && confirm('要結束這一輪並看總結報告嗎？')) finish(); else if (!S.res.filter(Boolean).length || confirm('要回到首頁嗎？這一輪的紀錄不會保存。')) renderStart(); };
   $('#spk').onclick = () => { DB.autoSpeak = !DB.autoSpeak; save(); toast(DB.autoSpeak ? '答完會自動念出正確句子' : '已關閉自動發音'); renderPlay(); };
   if (!S.answered) {
-    $('#mic').onclick = toggleMic;
+    if ($('#mic')) $('#mic').onclick = toggleMic;
     $('#form').onsubmit = e => { e.preventDefault(); submit($('#ans').value); };
     $('#h1').onclick = () => { S.hint = Math.max(S.hint, 1); keepInput(); };
     $('#h2').onclick = () => { S.hint = 2; keepInput(); };
@@ -781,6 +792,12 @@ function renderStart() {
 <button class="role" data-role="host" aria-pressed="${ROLE === 'host'}"><img src="${IMG('host-wave')}" alt=""><b>關主</b><small>主持整關：開場、規則、<br>出題、計分、頒獎</small></button>
 <button class="role helper" data-role="helper" aria-pressed="${ROLE === 'helper'}"><img src="${IMG('prop-basket')}" alt="" style="height:70px;margin:11px 0"><b>小幫手</b><small>發手環、帶隊排隊、<br>處理手環小狀況</small></button>
 </div>
+<div class="card" style="display:flex;flex-direction:column;gap:8px;padding:14px 16px">
+<b>麥克風測試</b>
+<div id="mictest" style="font-size:14px;line-height:1.6">${DB.micMode === 'web' ? '<span class="gram-ok"><b>麥克風可以用</b></span>，遊戲中按粉紅色麥克風說話。' : DB.micMode === 'keyboard' ? '這支手機的網頁語音不能用，已切換成<b>鍵盤聽寫</b>模式：作答時點輸入框，按鍵盤上的麥克風說英文。' : '開始前先測一次，確認網頁能不能直接聽你說話。'}</div>
+<div style="display:flex;gap:8px"><button class="btn" id="mt" style="flex:1">${ic('mic')}${DB.micMode ? '重新測試' : '開始測試'}</button>${DB.micMode !== 'keyboard' ? '<button class="btn" id="kb" style="flex:1">直接用鍵盤聽寫</button>' : ''}</div>
+<span class="muted" style="font-size:12px">可以照台詞說，也可以自由多說一點：台詞的內容有說到，多加的話不扣分。</span>
+</div>
 <b>練習模式</b>
 <div class="modes">
 <button class="btn mode" data-mode="full">${ic('star')}<span>完整一關<small>${fullN}</small></span></button>
@@ -790,11 +807,13 @@ function renderStart() {
 <div style="display:flex;flex-direction:column;gap:6px"><b style="font-size:14px">貼紙收集 ${DB.stickers.length} / 9</b><div class="stickers">${ALL_ANIMALS.map(a => `<div class="sticker${DB.stickers.includes(a) ? '' : ' off'}" title="${ZH_NAME[a]}"><img src="${IMG(a + '-n')}" alt="${DB.stickers.includes(a) ? ZH_NAME[a] : '未收集'}"></div>`).join('')}</div><span class="muted" style="font-size:12px">一輪 8 題以上、好感度 6 顆心以上，就能抽一張新貼紙。</span></div>
 ${lastH ? `<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:12px 16px"><span style="font-size:14px">上次（${ROLE === 'host' ? '關主' : '小幫手'}）</span>${heartsHTML(lastH.hearts)}<span class="en" style="font-weight:700">${lastH.acc}%</span></div>` : ''}
 <label style="display:flex;align-items:center;gap:8px;font-size:14px"><input type="checkbox" id="gramOn" ${DB.grammarOn ? 'checked' : ''} style="width:20px;height:20px">答完幫我檢查文法（需要網路，會把句子送到 LanguageTool 免費服務檢查）</label>
-<div class="envnote">${SR ? '可以照台詞說，也可以自由多說一點：只要台詞的內容有說到，多加的話不扣分。按麥克風用說的作答，或直接打字。第一次使用時，瀏覽器會詢問麥克風權限，請按「允許」。' : '這個瀏覽器不支援語音辨識，可以用打字作答。想用說的，iPhone 請用 Safari、Android 請用 Chrome 開啟。'}</div>
+
 <div style="display:flex;justify-content:space-between;align-items:center"><button class="linkbtn" id="clear">清除練習紀錄</button><span class="muted" style="font-size:12px">© 2026 啾啾菇</span></div>
 </div>`;
   document.querySelectorAll('.role').forEach(b => b.onclick = () => { ROLE = b.dataset.role; renderStart(); });
   document.querySelectorAll('.mode').forEach(b => b.onclick = () => startRun(b.dataset.mode));
+  $('#mt').onclick = micTest;
+  if ($('#kb')) $('#kb').onclick = () => setKeyboardMode('manual');
   $('#gramOn').onchange = e => { DB.grammarOn = e.target.checked; save(); };
   $('#clear').onclick = () => { if (confirm('確定要清除所有練習紀錄和貼紙嗎？')) { DB = { history: { host: [], helper: [] }, stats: {}, stickers: [], autoSpeak: DB.autoSpeak, grammarOn: DB.grammarOn }; save(); renderStart(); toast('紀錄已清除'); } };
   window.scrollTo(0, 0);
