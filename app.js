@@ -396,9 +396,15 @@ function toggleMic() {
     const l = $('#listening'); if (l) l.textContent = '聽到：' + shown.trim();
   };
   rec.onerror = e => {
-    if (e.error === 'not-allowed' || e.error === 'service-not-allowed') toast('沒有麥克風權限。請在瀏覽器設定允許麥克風，或改用打字。');
-    else if (e.error === 'no-speech') toast('沒有聽到聲音，再按一次麥克風試試');
-    else if (e.error !== 'aborted') toast('語音辨識出了點問題，可以再試一次或改用打字');
+    S.listening = false; updateMic();
+    const code = e.error || 'unknown';
+    if (code === 'not-allowed') toast('麥克風被擋住了（not-allowed）。請到 Safari 網站設定把麥克風改成「允許」，再重新整理。');
+    else if (code === 'service-not-allowed') toast('語音辨識服務沒開（service-not-allowed）。iPhone 請到「設定 → 一般 → 鍵盤」打開「啟用聽寫」，再重新整理。');
+    else if (code === 'no-speech') toast('沒有聽到聲音，再按一次麥克風試試');
+    else if (code === 'audio-capture') toast('抓不到麥克風（audio-capture），可能被別的 App 占用，關掉其他 App 再試。');
+    else if (code === 'network') toast('語音辨識需要網路（network），請確認網路後再試。');
+    else if (code !== 'aborted') toast(`語音辨識出了點問題（${code}），可以再試一次或改用打字`);
+    const l = $('#listening'); if (l) l.textContent = code === 'aborted' ? '' : `語音錯誤代碼：${code}`;
   };
   rec.onend = () => {
     S.listening = false; updateMic();
