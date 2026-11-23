@@ -381,6 +381,7 @@ function speak(text) {
 }
 function toggleMic() {
   if (!SR) { toast('這個瀏覽器不支援語音辨識，請改用打字作答'); return; }
+  if (S.srBlocked) { const inp = $('#ans'); if (inp) inp.focus(); toast('請按鍵盤上的麥克風（聽寫）說英文，說完按送出'); return; }
   if (S.listening && rec) { rec.stop(); return; }
   try { speechSynthesis.cancel(); } catch (e) { /* ignore */ }
   rec = new SR(); rec.lang = 'en-US'; rec.interimResults = true; rec.maxAlternatives = 5; rec.continuous = false;
@@ -399,7 +400,11 @@ function toggleMic() {
     S.listening = false; updateMic();
     const code = e.error || 'unknown';
     if (code === 'not-allowed') toast('麥克風被擋住了（not-allowed）。請到 Safari 網站設定把麥克風改成「允許」，再重新整理。');
-    else if (code === 'service-not-allowed') toast('語音辨識服務沒開（service-not-allowed）。iPhone 請到「設定 → 一般 → 鍵盤」打開「啟用聽寫」，再重新整理。');
+    else if (code === 'service-not-allowed') {
+      S.srBlocked = true;
+      toast('這支手機的網頁語音辨識被擋住了。請點輸入框，改用鍵盤上的麥克風（聽寫）說英文，說完按送出。');
+      const inp = $('#ans'); if (inp) inp.focus();
+    }
     else if (code === 'no-speech') toast('沒有聽到聲音，再按一次麥克風試試');
     else if (code === 'audio-capture') toast('抓不到麥克風（audio-capture），可能被別的 App 占用，關掉其他 App 再試。');
     else if (code === 'network') toast('語音辨識需要網路（network），請確認網路後再試。');
@@ -521,7 +526,8 @@ function startRun(mode) {
     if (chosen.length < 6) for (const st of shuffle(steps)) { if (chosen.length >= 8) break; if (!chosen.includes(st)) chosen.push(st); }
     steps = steps.filter(st => chosen.includes(st)).slice(0, 12);
   }
-  S = { role: ROLE, mode, steps, i: 0, res: [], t0: Date.now(), combo: 0, maxCombo: 0, hint: 0, revealed: false, answered: null, listening: false };
+  const blocked = S.srBlocked;
+  S = { srBlocked: blocked, role: ROLE, mode, steps, i: 0, res: [], t0: Date.now(), combo: 0, maxCombo: 0, hint: 0, revealed: false, answered: null, listening: false };
   renderPlay();
 }
 function weakKeys() {
