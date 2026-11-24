@@ -40,6 +40,9 @@ const ICON = {
   next: '<path d="M5 12h14"/><path d="M13 6l6 6-6 6"/>',
   skip: '<path d="M5 5l8 7-8 7z"/><line x1="18" y1="5" x2="18" y2="19"/>',
   send: '<path d="M4 12l16-8-6 16-3-7z"/>',
+  back: '<path d="M15 6l-6 6 6 6"/>',
+  book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/><path d="M8 7h8"/><path d="M8 11h6"/>',
+  grid: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
   flag: '<path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/>',
 };
 const ic = n => `<svg class="ico" viewBox="0 0 24 24" aria-hidden="true">${ICON[n]}</svg>`;
@@ -60,126 +63,203 @@ const colorsSentence = keys => {
   return cap(s) + '!';
 };
 const colorsZh = keys => [...keys].map(k => COLORS[k].zh).join('、');
-const L = (key, extra = {}) => { const d = LINES[key]; return Object.assign({ key, sec: d.sec, type: d.type, en: d.en, zh: d.zh, sit: d.sit, alts: [] }, extra); };
+const L = (key, extra = {}) => { const d = LINES[key]; return Object.assign({ key, sec: d.sec, type: d.type, en: d.en, zh: d.zh, sit: d.sit, alts: [...(d.alts || [])] }, extra); };
 const D = (key, sec, type, en, zh, sit, extra = {}) => Object.assign({ key, sec, type, en, zh, sit, alts: [] }, extra);
 const JAPAN_LINK = ['2-2', '2-3', '1-4', '3-4', 'W-2', '3-3'];
 
-function genHost() {
+// opts.all = true：延伸句全部出現（分段練習用）
+function genHost(opts = {}) {
   const steps = [];
+  const ex = p => opts.all || chance(p * .45);
   const sizeB = chance(.7) ? 5 : 4;
   let W = { sizeB, bandsOn: false, board: 'idle', side: null, score: null, host: 'wave', raise: null, mood: null };
   const push = (st, patch = {}) => { st.sc = clone({ ...W, ...patch }); steps.push(st); };
+  const events = shuffle(Object.keys(LINES).filter(k => LINES[k].event));
+  let evI = 0;
+  const maybeEvent = (p, patch = {}) => { if (evI < events.length && ex(p)) push(L(events[evI++]), patch); };
 
   // 01 開場
+  push(L('hello'), { host: 'wave' });
   push(L('welcome'), { host: 'wave', mood: 'happy' });
-  if (chance(.65)) push(L('havefun'), { host: 'cheer', mood: 'happy' });
+  if (ex(.6)) push(L('havefun'), { host: 'cheer', mood: 'happy' });
   push(L('playgame'), { host: 'cheer' });
+  push(L('maketeams'), { host: 'point' });
+  const nB = sizeB === 5 ? 'Five' : 'Four';
   push(D('grouping', '01 開場', 'base',
     sizeB === 5 ? 'Four people here, five people there.' : 'Four people here, four people there.',
     `這邊 4 位，那邊 ${sizeB} 位。`,
-    `一共 ${4 + sizeB} 位同學。把他們分成兩邊：一邊 4 位、另一邊 ${sizeB} 位。`), { host: 'point' });
+    `一共 ${4 + sizeB} 位同學。把他們分成兩邊：一邊 4 位、另一邊 ${sizeB} 位。`,
+    { alts: [`Four over here, please. ${nB} over there, please.`, `Four over here. ${nB} over there.`] }), { host: 'point' });
   push(L('teams'), { host: 'point' });
   // 02 手環
   push(L('helpers'), { host: 'wave', side: { kind: 'basket' } });
   W.bandsOn = true;
+  push(L('ready'), { host: 'cheer' });
   // 03 規則
   const warm = pick(CARDS.filter(c => c.round === 'W'));
-  push(L('gamename'), { host: 'cheer' });
+  push(L('showhow'), { host: 'point' });
+  if (ex(.3)) push(L('gamename'), { host: 'cheer' });
   push(L('firstlook'), { host: 'point', board: warm.colors });
+  push(L('have20'), { host: 'point', board: warm.colors, side: { kind: 'hourglass' } });
   push(L('thenbw'), { host: 'card', side: { kind: 'card', card: warm.code, reveal: false } });
   push(L('tellhow'), { host: 'card', side: { kind: 'card', card: warm.code, reveal: false } });
   push(L('raisehand'), { host: 'point', raise: { colors: warm.colors } });
-  push(L('onepoint'), { host: 'point' });
+  push(L('bothhands'), { host: 'cheer', raise: { colors: warm.colors } });
+  if (ex(.4)) push(L('example'), { host: 'point' });
+  push(L('have10'), { host: 'point', side: { kind: 'hourglass' } });
+  push(L('whitecounts'), { host: 'point' });
+  push(L('onepoint'), { host: 'point', side: { kind: 'scoreboard' }, score: { A: 0, B: 0 } });
   push(L('nominus'), { host: 'wave', mood: 'conf' });
   push(L('morewins'), { host: 'cheer' });
+  if (ex(.4)) push(L('teamwork'), { host: 'cheer', mood: 'happy' });
+  maybeEvent(.4);
   // 04 熱身
-  push(L('practice'), { host: 'card', side: { kind: 'card', card: warm.code, reveal: false } });
-  push(L('nopoints'), { host: 'point', side: { kind: 'card', card: warm.code, reveal: false } });
+  push(L('practice'), { host: 'card' });
+  if (ex(.4)) push(L('justpractice'), { host: 'point' });
+  push(L('nopoints'), { host: 'point' });
+  if (ex(.3)) push(L('herepractice'), { host: 'card', side: { kind: 'card', card: warm.code, reveal: false } });
+  if (ex(.5)) push(L('knowlogo'), { host: 'card', side: { kind: 'card', card: warm.code, reveal: true } });
+  if (opts.all) {
+    push(L('yourschool'), { host: 'point', side: { kind: 'card', card: 'W-1', reveal: true }, mood: 'happy' });
+    push(L('kumamon'), { host: 'point', side: { kind: 'card', card: 'W-2', reveal: true }, mood: 'happy' });
+  } else if (ex(.6)) push(L(warm.code === 'W-1' ? 'yourschool' : 'kumamon'), { host: 'point', side: { kind: 'card', card: warm.code, reveal: true }, mood: 'happy' });
+  if (ex(.4)) push(L('easy'), { host: 'cheer', mood: 'happy' });
+  push(L('realgame'), { host: 'cheer' });
 
   // 05–08 三回合
   const cards = { 1: pick(CARDS.filter(c => c.round === '1')), 2: pick(CARDS.filter(c => c.round === '2')), 3: pick(CARDS.filter(c => c.round === '3')) };
   const dist = {};
-  ['qintro', 'look20', 'left10', 'timesup', 'sec10', 'keepup', 'toomany', 'handsdown', 'check', 'endround'].forEach(k => { dist[k] = 1 + rnd(3); });
-  const has = (k, r) => dist[k] === r;
+  ['qintro', 'look20', 'left10', 'timesup', 'sec10', 'readygo2', 'keepup', 'toomany', 'handsdown', 'check', 'endround'].forEach(k => { dist[k] = 1 + rnd(3); });
+  const has = (k, r) => opts.all ? r === 1 || (k === 'endround' && r === 2) : dist[k] === r;
   let sa = 0, sb = 0, saidHarder = false;
   W.score = { A: 0, B: 0 };
+  const praise = ['goodjob', 'thatsright', 'perfect', 'almost', 'nicetry'];
+  const duringQ = ['think', 'talk', 'sure', 'five', 'cando'];
   for (const r of [1, 2, 3]) {
     const c = cards[r]; const n = c.colors.length; const nw = numWord(n);
     W.side = null; W.board = c.colors; W.raise = null;
-    const intro = { 1: ['Round one! Two-color logos.', '第一回合！兩色 Logo。'], 2: ['Round two! Three or four colors.', '第二回合！三到四色。'], 3: ['Round three! The hardest round!', '第三回合！最難的一回合！'] }[r];
-    push(D('round', '05 觀察', 'base', intro[0], intro[1], `第 ${r} 回合開始了！${r === 1 ? '這回合都是兩色的 Logo。' : r === 2 ? '這回合是三到四色的 Logo。' : '這是最難的一回合。'}宣布回合開始。`), { host: 'cheer' });
+    if (r === 3 && ex(.4)) push(L('finalround'), { host: 'cheer', board: 'idle' });
+    const intro = {
+      1: ['Round one! Each logo has two colors.', '第一回合！每個 Logo 都有兩個顏色。', ['Round one! Two-color logos.'], '這回合都是兩色的 Logo'],
+      2: ['Round two! Each logo has three or four colors.', '第二回合！每個 Logo 有三個或四個顏色。', ['Round two! Three or four colors.'], '這回合是三到四色的 Logo'],
+      3: ['Round three! Each logo has four to six colors.', '第三回合！每個 Logo 有四到六個顏色。', ['Round three! The hardest round!'], '這回合是四到六色的 Logo'],
+    }[r];
+    push(D('round', '05 觀察', 'base', intro[0], intro[1], `第 ${r} 回合開始了！${intro[3]}。宣布回合開始，並說明這回合的 Logo 有幾個顏色。`, { alts: intro[2] }), { host: 'cheer' });
+    if (r === 3 && ex(.4)) push(L('hardest'), { host: 'point' });
     if (has('look20', r)) push(L('look20'), { host: 'point', side: { kind: 'hourglass' } });
+    if (ex(.3)) push(L('lookcarefully'), { host: 'point', side: { kind: 'hourglass' } });
     if (has('left10', r)) push(L('left10'), { host: 'point', side: { kind: 'hourglass' } });
     if (has('timesup', r)) push(L('timesup'), { host: 'cheer', side: { kind: 'hourglass' } });
     W.board = 'idle';
+    if (ex(.25)) push(L('readygo'), { host: 'cheer' });
+    maybeEvent(.35);
     W.side = { kind: 'card', card: c.code, reveal: false };
-    const qn = 1 + rnd(4);
+    const qn = 1 + rnd(3);
     if (has('qintro', r)) push(D('qintro', '06 出題', 'base', `Question ${numWord(qn)}! Look at this logo!`, `第${NUM_ZH[qn]}題！請看這個 Logo！`, `第 ${qn} 題！舉起黑白題卡，請大家看這個 Logo。`), { host: 'card' });
     push(D('hascolors', '06 出題', 'base', `This logo has ${nw} colors.`, `這個 Logo 有 ${n} 個顏色。`, `題卡上寫著 ${n} colors。告訴大家這個 Logo 有幾個顏色。`), { host: 'card' });
-    push(D('upto', '06 出題', 'base', `Raise up to ${nw}!`, `最多舉 ${n} 個！`, `提醒大家：這題最多只能舉 ${n} 隻手。`), { host: 'point' });
+    push(D('upto', '06 出題', 'base', `Raise up to ${nw}!`, `最多舉 ${n} 個！`, `提醒大家：這題每隊最多只能舉 ${n} 隻手。`,
+      { alts: [`Each team can raise up to ${nw} hands.`, `${cap(nw)} hands per team, at most!`] }), { host: 'point' });
     if (has('sec10', r)) push(L('sec10'), { host: 'point' });
+    if (has('readygo2', r)) push(L('readygo2'), { host: 'cheer' });
     W.raise = { colors: c.colors };
-    if (chance(.35)) push(L('think'), { host: 'point' });
-    else if (chance(.35)) push(L('sure'), { host: 'point' });
+    for (const k of (opts.all ? duringQ : shuffle(duringQ).slice(0, 2))) if (ex(.35)) push(L(k), { host: 'point' });
     if (has('keepup', r)) push(L('keepup'), { host: 'cheer' });
-    if (has('toomany', r)) push(L('toomany'), { host: 'point', raise: { colors: c.colors, extra: true } });
+    if (ex(.3)) push(L('nochanges'), { host: 'point' });
+    if (has('toomany', r)) push(L('toomany', { alts: [...LINES.toomany.alts, `Only ${nw} hands, please.`] }), { host: 'point', raise: { colors: c.colors, extra: true } });
     if (has('handsdown', r)) push(L('handsdown'), { host: 'wave' });
     W.raise = null;
     if (has('check', r)) push(L('check'), { host: 'card' });
     W.side = { kind: 'card', card: c.code, reveal: true };
+    if (ex(.3)) push(L('hereitis'), { host: 'card' });
     push(D('colors', '07 公布', 'base', colorsSentence(c.colors), colorsZh(c.colors) + '！', '翻開題卡背面了！照著背面的顏色，念出這題的答案。', { mode: 'colors', colorKeys: c.colors }), { host: 'point' });
+    if (ex(.3)) push(L('count'), { host: 'point' });
     push(D('brand', '07 公布', 'base', `This is ${c.say}.`, `這是${c.zh}。`, '介紹這是哪個品牌（看題卡背面的名字）。', { mode: 'brand', alts: c.alts.map(a => `This is ${a}.`), fact: c.fact }), { host: 'point' });
-    const allRight = chance(.5);
-    if (chance(.55)) push(allRight ? L('goodjob') : L('nicetry'), { host: allRight ? 'clap' : 'wave', mood: allRight ? 'happy' : 'conf' });
-    if (JAPAN_LINK.includes(c.code) && chance(.6)) push(L('seenjapan'), { host: 'point' });
-    else if (chance(.35)) push(L('knowbrand'), { host: 'point' });
+    if (c.origin && ex(.5)) push(L(c.origin === 'tw' ? 'twbrand' : 'jpbrand'), { host: 'point' });
+    if (JAPAN_LINK.includes(c.code) && ex(.5)) push(L('seenjapan'), { host: 'point' });
+    else if (ex(.4)) push(L(pick(['knowbrand', 'seenbefore'])), { host: 'point' });
+    const pr = opts.all ? praise : [pick(praise)];
+    for (const k of pr) if (ex(.6)) push(L(k), { host: ['almost', 'nicetry'].includes(k) ? 'wave' : 'clap', mood: ['almost', 'nicetry'].includes(k) ? 'conf' : 'happy' });
     const pa = 1 + rnd(n), pb = 1 + rnd(n);
     sa += pa; sb += pb; W.score = { A: sa, B: sb };
     const ann = r === 1 ? ['A', 'B'] : [pick(['A', 'B'])];
     for (const t of ann) {
       const p = t === 'A' ? pa : pb;
-      push(D('points', '08 計分', 'base', `Team ${t} gets ${numWord(p)} point${p > 1 ? 's' : ''}!`, `${t} 隊得 ${p} 分！`, `${t} 隊這題答對了 ${p} 個顏色，宣布 ${t} 隊得幾分。`), { host: 'cheer', side: { kind: 'scoreboard' } });
+      push(D('points', '08 計分', 'base', `Team ${t} gets ${numWord(p)} point${p > 1 ? 's' : ''}!`, `${t} 隊得 ${p} 分！`, `${t} 隊這題答對了 ${p} 個顏色，宣布 ${t} 隊得幾分。`,
+        { alts: [`${cap(numWord(p))} point${p > 1 ? 's' : ''} for Team ${t}!`] }), { host: 'cheer', side: { kind: 'scoreboard' } });
     }
+    if (ex(.25)) push(L('allright'), { host: 'clap', mood: 'happy', side: { kind: 'scoreboard' } });
+    if (ex(.2)) push(L('bothgreat'), { host: 'clap', mood: 'happy', side: { kind: 'scoreboard' } });
+    if (ex(.3)) push(L('nextone'), { host: 'point' });
     if (has('endround', r)) push(D('endround', '08 計分', 'base', `That's the end of round ${numWord(r)}!`, `第${NUM_ZH[r]}回合結束！`, `第 ${r} 回合的題目都出完了，宣布這回合結束。`), { host: 'wave', side: { kind: 'scoreboard' } });
-    if (r < 3 && chance(.5)) {
-      push(D('totals', '08 計分', 'ext', `Team A has ${numWord(sa)} points, Team B has ${numWord(sb)}.`, `A 隊 ${sa} 分，B 隊 ${sb} 分。`, `第 ${r} 回合後的分數：A 隊 ${sa} 分、B 隊 ${sb} 分。報一下目前比數。`, { alts: [`Team A has ${numWord(sa)} points, Team B has ${numWord(sb)} points.`] }), { host: 'point', side: { kind: 'scoreboard' } });
-      if (Math.abs(sa - sb) <= 1 && chance(.8)) push(L('close'), { host: 'cheer', side: { kind: 'scoreboard' } });
+    if (r < 3) {
+      if (ex(.3)) push(L('seescores'), { host: 'point', side: { kind: 'scoreboard' } });
+      if (ex(.5)) {
+        push(D('totals', '08 計分', 'ext', `Team A has ${numWord(sa)} points, Team B has ${numWord(sb)}.`, `A 隊 ${sa} 分，B 隊 ${sb} 分。`, `第 ${r} 回合後的分數：A 隊 ${sa} 分、B 隊 ${sb} 分。報一下目前比數。`,
+          { alts: [`Team A has ${numWord(sa)} points. Team B has ${numWord(sb)} points.`, `Team A has ${numWord(sa)} points, Team B has ${numWord(sb)} points.`] }), { host: 'point', side: { kind: 'scoreboard' } });
+        if (sa === sb && ex(.8)) push(L('tied'), { host: 'cheer', side: { kind: 'scoreboard' } });
+        else if (Math.abs(sa - sb) <= 2 && ex(.8)) push(L('close'), { host: 'cheer', side: { kind: 'scoreboard' } });
+      }
+      if (ex(.3)) push(L('keepitup'), { host: 'cheer' });
+      if (ex(.3)) push(L('moveon'), { host: 'point' });
+      if (!saidHarder && ex(.4)) { saidHarder = true; push(L('harder'), { host: 'cheer' }); }
     }
-    if (r < 3 && !saidHarder && chance(.45)) { saidHarder = true; push(L('harder'), { host: 'cheer' }); }
   }
   // 09 最終
   W.side = { kind: 'scoreboard' }; W.board = 'idle';
-  const tie = chance(.3);
+  const tie = opts.all || chance(.3);
   if (tie) { sb = sa; W.score = { A: sa, B: sb }; }
   push(L('gameend'), { host: 'clap' });
+  if (ex(.5)) push(L('greatjob'), { host: 'clap', mood: 'happy' });
   push(L('finalscore'), { host: 'point' });
   let winner = sa > sb ? 'A' : sa < sb ? 'B' : null;
   if (tie) {
+    const tc = pick(CARDS.filter(c => c.round === '3' && c.code !== cards[3].code));
     push(L('tie'), { host: 'point' });
-    push(L('onemore'), { host: 'card', side: { kind: 'card', card: pick(CARDS.filter(c => c.round === '3' && c.code !== cards[3].code)).code, reveal: false } });
-    push(L('ready'), { host: 'cheer' });
+    push(L('onemore'), { host: 'card', side: { kind: 'card', card: tc.code, reveal: false } });
+    push(L('different'), { host: 'point', side: { kind: 'card', card: tc.code, reveal: false } });
+    push(L('allcolors'), { host: 'point', side: { kind: 'card', card: tc.code, reveal: false } });
+    push(L('firstteam'), { host: 'point', side: { kind: 'card', card: tc.code, reveal: false } });
+    if (ex(.5)) push(L('quick'), { host: 'point' });
+    push(L('readyset'), { host: 'cheer', side: { kind: 'card', card: tc.code, reveal: false } });
     winner = pick(['A', 'B']);
-    if (winner === 'A') sa += 1; else sb += 1;
-    W.score = { A: sa, B: sb };
+    const loser = winner === 'A' ? 'B' : 'A';
+    if (ex(.5)) push(L('notquite', { sit: `${loser} 隊舉了，但還沒全部答對，請他們繼續試。` }), { host: 'point', raise: { colors: tc.colors } });
+    if (ex(.3)) push(L('almostthere', { sit: `${winner} 隊只差一個顏色了！` }), { host: 'cheer', raise: { colors: tc.colors } });
+    push(D('firstright', '09 最終', 'base', `Team ${winner} got all the colors right first!`, `${winner} 隊最先答對所有顏色！`, `${winner} 隊比較快把所有顏色都舉對了！宣布結果。`), { host: 'cheer', side: { kind: 'card', card: tc.code, reveal: true } });
   }
-  push(D('winner', '09 最終', 'base', `Team ${winner} wins!`, `${winner} 隊獲勝！`, `最後比數 A 隊 ${sa} 分、B 隊 ${sb} 分。宣布哪一隊贏了！`), { host: 'cheer', mood: 'happy' });
+  push(D('winner', '09 最終', 'base', `Team ${winner} wins!`, `${winner} 隊獲勝！`, tie ? `加賽結束，宣布 ${winner} 隊獲勝！` : `最後比數 A 隊 ${sa} 分、B 隊 ${sb} 分。宣布哪一隊贏了！`,
+    { alts: [`And the winner is Team ${winner}!`, `And the winner is... Team ${winner}!`] }), { host: 'cheer', mood: 'happy' });
+  push(L('congrats'), { host: 'clap', mood: 'happy' });
+  if (ex(.5)) push(L('bighand'), { host: 'clap', mood: 'happy' });
   // 10 頒獎
   W.side = { kind: 'gifts' };
+  if (ex(.4)) push(L('everyonegreat'), { host: 'clap' });
+  if (ex(.5)) push(L('littlegift'), { host: 'cheer' });
   push(L('pencil'), { host: 'clap' });
+  if (ex(.5)) push(L('forwinning'), { host: 'point' });
   push(L('surprise'), { host: 'cheer' });
-  push(L('congrats'), { host: 'clap', mood: 'happy' });
-  if (chance(.6)) push(L('oval'), { host: 'point' });
+  if (ex(.5)) push(L('ovaltape'), { host: 'point' });
+  if (ex(.5)) push(L('oval'), { host: 'point' });
+  if ((cards[1].code === '1-1' && ex(.7)) || opts.all) push(L('rememberbrand'), { host: 'point' });
+  push(L('congrats2'), { host: 'clap', mood: 'happy' });
+  if (ex(.4)) push(L('hopelike'), { host: 'wave', mood: 'happy' });
   // 11 道別
+  if (ex(.5)) push(L('didfun'), { host: 'wave', mood: 'happy' });
   push(L('giveback'), { host: 'wave', side: { kind: 'basket' } });
   W.bandsOn = false; W.side = null;
   push(L('thanks'), { host: 'clap', mood: 'happy' });
-  if (chance(.75)) push(L('happyhave'), { host: 'wave' });
+  if (ex(.6)) push(L('happyhave'), { host: 'wave' });
+  if (ex(.3)) push(L('hopefun'), { host: 'wave' });
+  if (ex(.6)) push(L('nextstation'), { host: 'point' });
   push(L('enjoy'), { host: 'wave', mood: 'happy' });
+  if (ex(.4)) push(L('bye'), { host: 'wave', mood: 'happy' });
+  if (opts.all) while (evI < events.length) push(L(events[evI++]), { host: 'point', bandsOn: true });
   return steps;
 }
 
-function genHelper() {
+function genHelper(opts = {}) {
   const steps = [];
+  const ex = p => opts.all || chance(p);
   const size = chance(.5) ? 5 : 4;
   const team = size === 5 ? 'B' : 'A';
   const names = size === 5 ? ANIMALS_B : ANIMALS_A;
@@ -192,21 +272,22 @@ function genHelper() {
     const b = bands[i]; const two = b.length === 2; const nm = ZH_NAME[names[i]];
     W.given = i + 1;
     const focus = { team, i };
-    push(D('yournum', '戴手環', 'base',
+    push(D('yournum', '02 手環', 'base',
       `You are number ${numWord(i + 1)}. ${two ? 'These are your colors.' : 'This is your color.'}`,
       `你是 ${i + 1} 號，${two ? '這些是你的顏色' : '這是你的顏色'}。`,
-      `輪到${nm}了。他是 ${i + 1} 號，配色卡上是「${colorsZh(b)}」${two ? '兩個' : '一個'}手環。把手環交給他，告訴他號碼和顏色。`), { focus });
+      `輪到${nm}了。他是 ${i + 1} 號，配色卡上是「${colorsZh(b)}」${two ? '兩個' : '一個'}手環。把手環交給他，告訴他號碼和顏色。`,
+      { alts: [two ? 'Here are your colors!' : "Here's your color!", `Number ${numWord(i + 1)}. ${two ? 'Here are your colors!' : "Here's your color!"}`] }), { focus });
     if (two && !didEach) { didEach = true; push(L('eachhand', { sit: `${nm}拿著兩個手環，不知道要怎麼戴。告訴他左右手各戴一個。` }), { focus }); }
     if (!two && !didEither) { didEither = true; push(L('either', { sit: `${nm}只有一個手環，問你要戴哪一手。告訴他哪一手都可以。` }), { focus }); }
-    if (i === 2 && !didLook && chance(.8)) {
+    if (i === 2 && !didLook && ex(.8)) {
       didLook = true; const j = rnd(2);
       push(L('lookcard', { sit: `${ZH_NAME[names[j]]}突然忘記自己該戴哪個顏色，一臉困惑。請他看配色卡。` }), { focus: { team, i: j }, react: { [`${team}${j}`]: 'q' } });
     }
   }
   push(L('remember'), { mood: 'happy' });
-  if (chance(.7)) {
+  if (ex(.7)) {
     const other = team === 'A' ? 'B' : 'A';
-    push(L('choose', { sit: `下一隊來了。他們還沒決定誰是幾號，想自己分配顏色。請他們一起討論、決定誰戴哪些顏色。` }), { only: other, given: 0, sizeB: 5, mood: 'conf' });
+    push(L('choose', { sit: '下一隊來了。他們還沒決定誰是幾號，想自己分配顏色。請他們一起討論、決定誰戴哪些顏色。' }), { only: other, given: 0, sizeB: 5, mood: 'conf' });
   }
   return steps;
 }
@@ -524,10 +605,14 @@ function heartsNow() {
   return Math.round(10 * done.reduce((a, r) => a + itemScore(r), 0) / done.length);
 }
 
-function startRun(mode) {
+function startRun(mode, secName) {
   const gen = ROLE === 'host' ? genHost : genHelper;
-  let steps = gen();
-  if (mode === 'quick') {
+  let steps = gen(mode === 'section' ? { all: true } : {});
+  if (mode === 'section') {
+    const seen = new Set();
+    if (secName === '02 手環') steps = [...steps, ...genHelper({ all: true })];
+    steps = steps.filter(st => { const k = st.key; if (st.sec !== secName || seen.has(k)) return false; seen.add(k); return true; });
+  } else if (mode === 'quick') {
     const idx = shuffle(steps.map((_, i) => i)).slice(0, 10).sort((a, b) => a - b);
     steps = idx.map(i => steps[i]);
   } else if (mode === 'weak') {
@@ -538,7 +623,7 @@ function startRun(mode) {
     steps = steps.filter(st => chosen.includes(st)).slice(0, 12);
   }
   const blocked = S.srBlocked;
-  S = { srBlocked: blocked, role: ROLE, mode, steps, i: 0, res: [], t0: Date.now(), combo: 0, maxCombo: 0, hint: 0, revealed: false, answered: null, listening: false };
+  S = { srBlocked: blocked, role: ROLE, mode, secName, steps, i: 0, res: [], t0: Date.now(), combo: 0, maxCombo: 0, hint: 0, revealed: false, answered: null, listening: false };
   renderPlay();
 }
 function weakKeys() {
@@ -585,12 +670,12 @@ function renderPlay() {
   const st = S.steps[S.i];
   const total = S.steps.length;
   const roleLabel = S.role === 'host' ? '關主模式' : '小幫手模式';
-  const modeLabel = { full: '完整一關', quick: '快速抽考', weak: '弱點加強' }[S.mode];
+  const modeLabel = ({ full: '完整一關', quick: '快速抽考', weak: '弱點加強', section: S.secName || '分段練習' }[S.mode]);
   const mood = S.answered ? (S.answered.gr.grade === 'ok' ? 'happy' : S.answered.gr.grade === 'bad' ? 'conf' : null) : null;
   const top = `<div class="topbar">
 <div class="l"><button class="iconbtn" id="home" aria-label="結束練習">${ic('home')}</button><h2>關主模擬器</h2><span class="pill" style="background:${S.role === 'host' ? 'var(--pink)' : 'var(--sky)'}">${roleLabel}</span><span class="pill modepill">${modeLabel}</span></div>
 <div class="r"><div class="prog"><b style="color:var(--ink)">${S.i + 1} / ${total}</b><div class="bar"><i style="width:${(S.i / total) * 100}%"></i></div></div>${heartsHTML(heartsNow())}${S.combo >= 2 ? `<span class="combo${S.answered && S.combo >= 2 ? ' pop' : ''}">COMBO ×${S.combo}</span>` : ''}
-<button class="iconbtn" id="spk" aria-label="${DB.autoSpeak ? '關閉自動發音' : '開啟自動發音'}" title="答完自動念正確句子">${ic(DB.autoSpeak ? 'sound' : 'mute')}</button></div></div>`;
+<button class="iconbtn" id="cheatBtn" aria-label="話術小抄" title="話術小抄">${ic('book')}</button><button class="iconbtn" id="spk" aria-label="${DB.autoSpeak ? '關閉自動發音' : '開啟自動發音'}" title="答完自動念正確句子">${ic(DB.autoSpeak ? 'sound' : 'mute')}</button></div></div>`;
   const sit = `<div class="card sit"><div class="head"><span class="pill" style="background:var(--mint)">${esc(st.sec)}</span><span class="pill ${st.type === 'base' ? 'tagbase' : 'tagext'}">${st.type === 'base' ? '基本句' : '延伸句'}</span></div><p>${esc(st.sit)}</p></div>`;
   let panel;
   if (!S.answered) {
@@ -637,6 +722,7 @@ ${st.fact ? `<div class="fact"><b>Fun Fact</b>　<span class="en">${esc(st.fact)
   app.innerHTML = `${top}<div class="playgrid">${sceneHTML(st.sc, mood)}<div class="panel">${panel}</div></div><div class="footer">© 2026 啾啾菇</div>`;
 
   $('#home').onclick = () => { if (S.res.filter(Boolean).length >= 3 && confirm('要結束這一輪並看總結報告嗎？')) finish(); else if (!S.res.filter(Boolean).length || confirm('要回到首頁嗎？這一輪的紀錄不會保存。')) renderStart(); };
+  $('#cheatBtn').onclick = () => renderCheat({ from: 'play' });
   $('#spk').onclick = () => { DB.autoSpeak = !DB.autoSpeak; save(); toast(DB.autoSpeak ? '答完會自動念出正確句子' : '已關閉自動發音'); renderPlay(); };
   if (!S.answered) {
     if ($('#mic')) $('#mic').onclick = toggleMic;
@@ -740,7 +826,7 @@ function finish() {
   else if (hintN) tip = `這輪用了 ${hintN} 次提示，下次試著先自己說說看再看提示。`;
   else tip = '整體很穩！多練幾輪讓句子變成反射動作。';
   const last = hist.slice(-8);
-  const modeLabel = { full: '完整一關', quick: '快速抽考', weak: '弱點加強' }[S.mode];
+  const modeLabel = ({ full: '完整一關', quick: '快速抽考', weak: '弱點加強', section: S.secName || '分段練習' }[S.mode]);
   app.innerHTML = `<div class="report">
 <div class="head"><h1>關主手帳</h1><span class="pill" style="background:var(--butter)">${S.role === 'host' ? '關主' : '小幫手'}・${modeLabel}・第 ${hist.length} 次</span></div>
 <div class="card" style="background:rgba(255,247,249,.85);display:flex;flex-direction:column;gap:12px">
@@ -769,8 +855,8 @@ ${chips.length ? `<h3>常犯小錯</h3><div class="chips">${chips.map(([k, n]) =
 <div class="footer">© 2026 啾啾菇</div>
 </div>`;
   window.scrollTo(0, 0);
-  const mode = S.mode;
-  $('#again').onclick = () => startRun(mode);
+  const mode = S.mode, secName = S.secName;
+  $('#again').onclick = () => startRun(mode, secName);
   $('#weak').onclick = () => startRun('weak');
   $('#home').onclick = renderStart;
 }
@@ -778,15 +864,17 @@ ${chips.length ? `<h3>常犯小錯</h3><div class="chips">${chips.map(([k, n]) =
 /* =========================================================
    首頁
    ========================================================= */
+let SHOW_SEC = false;
 function renderStart() {
   try { if (rec) rec.abort(); } catch (e) { /* ignore */ }
   S = { role: ROLE, listening: false };
   const hist = DB.history[ROLE] || [];
   const lastH = hist.length ? hist[hist.length - 1] : null;
-  const fullN = ROLE === 'host' ? '約 60 句，從開場到道別（15–20 分鐘）' : '約 10 句，發手環到處理小狀況';
+  const fullN = ROLE === 'host' ? '約 70–80 句，從開場到道別（約 20 分鐘）' : '約 10 句，發手環到處理小狀況';
   app.innerHTML = `<div class="start">
 <div class="hero"><span class="en muted" style="font-size:13px;letter-spacing:1px;font-weight:600">BRAND COLOR CHALLENGE</span><h1>關主模擬器</h1><span class="muted" style="font-size:14px">熊本北小動物訪問團來囉！12/17</span></div>
 <div class="crew">${['shiba-r2', 'cat-happy', 'rabbit-r2', 'fox-happy', 'penguin-happy'].map(n => `<img src="${IMG(n)}" alt="">`).join('')}</div>
+<button class="btn butter" id="openCheat" style="min-height:54px;font-size:16px">${ic('book')}話術小抄：沒時間玩，快速複習</button>
 <b>選擇你的角色</b>
 <div class="roles">
 <button class="role" data-role="host" aria-pressed="${ROLE === 'host'}"><img src="${IMG('host-wave')}" alt=""><b>關主</b><small>主持整關：開場、規則、<br>出題、計分、頒獎</small></button>
@@ -802,6 +890,8 @@ function renderStart() {
 <div class="modes">
 <button class="btn mode" data-mode="full">${ic('star')}<span>完整一關<small>${fullN}</small></span></button>
 <button class="btn mode" data-mode="quick">${ic('clock')}<span>快速抽考<small>隨機 10 題，零碎時間用</small></span></button>
+${ROLE === 'host' ? `<button class="btn mode" id="secMode">${ic('grid')}<span>分段練習<small>只練某一段，例如 03 規則、09 加賽</small></span></button>
+${SHOW_SEC ? `<div class="secchips">${CHEAT_TABS.map(t => `<button class="pill secchip" data-sec="${t.name}">${t.name}</button>`).join('')}</div>` : ''}` : ''}
 <button class="btn mode" data-mode="weak" ${hasStats() ? '' : 'disabled'}>${ic('target')}<span>弱點加強<small>${hasStats() ? '只練常錯和看過提示的句子' : '先玩一輪，才知道你的弱點喔'}</small></span></button>
 </div>
 <div style="display:flex;flex-direction:column;gap:6px"><b style="font-size:14px">貼紙收集 ${DB.stickers.length} / 9</b><div class="stickers">${ALL_ANIMALS.map(a => `<div class="sticker${DB.stickers.includes(a) ? '' : ' off'}" title="${ZH_NAME[a]}"><img src="${IMG(a + '-n')}" alt="${DB.stickers.includes(a) ? ZH_NAME[a] : '未收集'}"></div>`).join('')}</div><span class="muted" style="font-size:12px">一輪 8 題以上、好感度 6 顆心以上，就能抽一張新貼紙。</span></div>
@@ -811,11 +901,80 @@ ${lastH ? `<div class="card" style="display:flex;align-items:center;justify-cont
 <div style="display:flex;justify-content:space-between;align-items:center"><button class="linkbtn" id="clear">清除練習紀錄</button><span class="muted" style="font-size:12px">© 2026 啾啾菇</span></div>
 </div>`;
   document.querySelectorAll('.role').forEach(b => b.onclick = () => { ROLE = b.dataset.role; renderStart(); });
-  document.querySelectorAll('.mode').forEach(b => b.onclick = () => startRun(b.dataset.mode));
+  document.querySelectorAll('.mode[data-mode]').forEach(b => b.onclick = () => startRun(b.dataset.mode));
+  if ($('#secMode')) $('#secMode').onclick = () => { SHOW_SEC = !SHOW_SEC; renderStart(); if (SHOW_SEC) $('.secchips').scrollIntoView({ block: 'nearest' }); };
+  document.querySelectorAll('.secchip').forEach(b => b.onclick = () => startRun('section', b.dataset.sec));
+  $('#openCheat').onclick = () => renderCheat({ from: 'start' });
   $('#mt').onclick = micTest;
   if ($('#kb')) $('#kb').onclick = () => setKeyboardMode('manual');
   $('#gramOn').onchange = e => { DB.grammarOn = e.target.checked; save(); };
   $('#clear').onclick = () => { if (confirm('確定要清除所有練習紀錄和貼紙嗎？')) { DB = { history: { host: [], helper: [] }, stats: {}, stickers: [], autoSpeak: DB.autoSpeak, grammarOn: DB.grammarOn }; save(); renderStart(); toast('紀錄已清除'); } };
+  window.scrollTo(0, 0);
+}
+
+
+/* =========================================================
+   話術小抄
+   ========================================================= */
+let CH = { tab: 0, baseOnly: false, q: '', from: 'start', role: 'all' };
+const cheatEntry = k => LINES[k] || DYN_CHEAT[k];
+function cheatItemHTML(k) {
+  const d = cheatEntry(k); if (!d) return '';
+  const alts = (d.alts || []).filter(a => a !== d.en);
+  return `<div class="ci">
+<div class="ci-h"><span class="en">${esc(d.en)}</span><button class="iconbtn say" data-say="${esc(d.en)}" aria-label="播放發音">${ic('sound')}</button></div>
+<div class="ci-zh">${esc(d.zh)}</div>
+${alts.length ? `<div class="ci-alt">也可以說：<span class="en">${alts.map(esc).join('　／　')}</span></div>` : ''}
+${d.note ? `<div class="ci-note">${esc(d.note)}</div>` : ''}
+<div class="ci-tags"><span class="pill ${d.type === 'base' ? 'tagbase' : 'tagext'}">${d.type === 'base' ? '基本句' : '延伸句'}</span>${d.role === 'helper' ? '<span class="pill" style="background:var(--sky)">小幫手</span>' : ''}${DYN_CHEAT[k] ? '<span class="pill">數字／顏色會換</span>' : ''}</div>
+</div>`;
+}
+function renderCheat(opts) {
+  if (opts) Object.assign(CH, opts);
+  try { if (rec) rec.abort(); } catch (e) { /* ignore */ }
+  const tabs = [...CHEAT_TABS.map(t => t.name), '一題示範', '顏色數字'];
+  const pass = k => { const d = cheatEntry(k); if (!d) return false; if (CH.baseOnly && d.type !== 'base') return false; if (CH.role !== 'all' && (d.role || 'host') !== CH.role) return false; return true; };
+  let body = '';
+  const q = CH.q.trim().toLowerCase();
+  if (q) {
+    const keys = []; CHEAT_TABS.forEach(t => t.keys.forEach(k => { const d = cheatEntry(k); if (d && pass(k) && (d.en + ' ' + d.zh + ' ' + (d.alts || []).join(' ')).toLowerCase().includes(q)) keys.push(k); }));
+    body = keys.length ? keys.map(cheatItemHTML).join('') : '<div class="ci muted">找不到符合的句子</div>';
+  } else if (CH.tab < CHEAT_TABS.length) {
+    const keys = CHEAT_TABS[CH.tab].keys.filter(pass);
+    body = keys.length ? keys.map(cheatItemHTML).join('') : '<div class="ci muted">這一段沒有符合篩選的句子</div>';
+  } else if (tabs[CH.tab] === '一題示範') {
+    body = `<div class="ci"><span class="muted" style="font-size:13px">以全聯（三色）為例，把出題到下一題串起來。正式題目只要換題號、顏色數、答案、分數和品牌。</span></div>` +
+      DEMO_FLOW.map(x => x[0] === 'act' ? `<div class="demo-act">▸ ${esc(x[1])}</div>` : `<div class="ci demo"><div class="ci-h"><span class="en">${esc(x[1])}</span><button class="iconbtn say" data-say="${esc(x[1])}" aria-label="播放發音">${ic('sound')}</button></div><div class="ci-zh">${esc(x[2])}</div></div>`).join('');
+  } else {
+    body = `<div class="ci"><b>八種手環顏色</b><div class="colorgrid">${Object.values(COLORS).map(c => `<button class="colorchip" data-say="${c.en}"><i style="background:${c.hex}"></i><span class="en">${cap(c.en)}</span><small>${c.zh}色</small></button>`).join('')}</div></div>
+<div class="ci"><b>數字</b><div class="colorgrid">${[1, 2, 3, 4, 5, 6, 10, 20].map(n => `<button class="colorchip" data-say="${n <= 10 ? NUM_WORDS[n] : 'twenty'}"><span class="en" style="font-size:18px">${n}</span><small class="en">${n <= 10 ? NUM_WORDS[n] : 'twenty'}</small></button>`).join('')}</div></div>
+<div class="ci"><b>念答案的句型</b>
+<div class="ci-h" style="margin-top:6px"><span class="en">Red and white!</span><button class="iconbtn say" data-say="Red and white!" aria-label="播放發音">${ic('sound')}</button></div>
+<div class="ci-h"><span class="en">Red, white, and blue!</span><button class="iconbtn say" data-say="Red, white, and blue!" aria-label="播放發音">${ic('sound')}</button></div>
+<div class="ci-note">兩色用 and 連接；三色以上用逗號，最後一個前面加 and</div></div>`;
+  }
+  app.innerHTML = `<div class="cheat">
+<div class="topbar" style="margin-bottom:8px"><div class="l"><button class="iconbtn" id="chBack" aria-label="返回">${ic('back')}</button><h2>話術小抄</h2></div>
+<div class="r"><label class="sr" for="chq">搜尋</label><input id="chq" class="chsearch" placeholder="搜尋英文或中文⋯" value="${esc(CH.q)}"></div></div>
+<div class="chfilters">
+<button class="pill chf${CH.baseOnly ? '' : ' on'}" data-f="all">全部句子</button><button class="pill chf${CH.baseOnly ? ' on' : ''}" data-f="base">只看基本句</button>
+<span style="width:8px"></span>
+<button class="pill chr${CH.role === 'all' ? ' on' : ''}" data-r="all">全部角色</button><button class="pill chr${CH.role === 'host' ? ' on' : ''}" data-r="host">關主</button><button class="pill chr${CH.role === 'helper' ? ' on' : ''}" data-r="helper">小幫手</button>
+</div>
+${q ? '' : `<div class="chtabs" role="tablist">${tabs.map((t, i) => `<button role="tab" aria-selected="${i === CH.tab}" class="chtab${i === CH.tab ? ' on' : ''}" data-t="${i}">${esc(t)}</button>`).join('')}</div>`}
+<div class="chlist">${body}</div>
+${CH.from === 'play' ? `<button class="btn pink" id="chResume" style="width:100%;margin-top:14px">回到練習</button>` : `<button class="btn pink" id="chPractice" style="width:100%;margin-top:14px">${ic('star')}練習${q || CH.tab >= CHEAT_TABS.length ? '' : '「' + CHEAT_TABS[CH.tab].name + '」這一段'}</button>`}
+<div class="footer">© 2026 啾啾菇</div></div>`;
+  const back = () => { if (CH.from === 'play' && S.steps) renderPlay(); else renderStart(); };
+  $('#chBack').onclick = back;
+  if ($('#chResume')) $('#chResume').onclick = back;
+  if ($('#chPractice')) $('#chPractice').onclick = () => { if (!q && CH.tab < CHEAT_TABS.length) { ROLE = CHEAT_TABS[CH.tab].name === '02 手環' && CH.role === 'helper' ? 'helper' : 'host'; if (ROLE === 'helper') startRun('full'); else startRun('section', CHEAT_TABS[CH.tab].name); } else startRun('quick'); };
+  document.querySelectorAll('.chtab').forEach(b => b.onclick = () => { CH.tab = +b.dataset.t; renderCheat(); const on = $('.chtab.on'); if (on) on.scrollIntoView({ inline: 'center', block: 'nearest' }); });
+  document.querySelectorAll('.chf').forEach(b => b.onclick = () => { CH.baseOnly = b.dataset.f === 'base'; renderCheat(); });
+  document.querySelectorAll('.chr').forEach(b => b.onclick = () => { CH.role = b.dataset.r; renderCheat(); });
+  document.querySelectorAll('[data-say]').forEach(b => b.onclick = () => speak(b.dataset.say));
+  const inp = $('#chq');
+  inp.oninput = () => { CH.q = inp.value; const pos = inp.selectionStart; renderCheat(); const n = $('#chq'); n.focus(); try { n.setSelectionRange(pos, pos); } catch (e) { /* ignore */ } };
   window.scrollTo(0, 0);
 }
 
