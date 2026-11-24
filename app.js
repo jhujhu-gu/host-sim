@@ -86,10 +86,10 @@ function genHost(opts = {}) {
   push(L('maketeams'), { host: 'point' });
   const nB = sizeB === 5 ? 'Five' : 'Four';
   push(D('grouping', '01 開場', 'base',
-    sizeB === 5 ? 'Four people here, five people there.' : 'Four people here, four people there.',
-    `這邊 4 位，那邊 ${sizeB} 位。`,
-    `一共 ${4 + sizeB} 位同學。把他們分成兩邊：一邊 4 位、另一邊 ${sizeB} 位。`,
-    { alts: [`Four over here, please. ${nB} over there, please.`, `Four over here. ${nB} over there.`] }), { host: 'point' });
+    `Four over here, please. ${nB} over there, please.`,
+    `請四位到這邊，${sizeB === 5 ? '五' : '四'}位到那邊。`,
+    `一共 ${4 + sizeB} 位同學。用手勢把他們分成兩邊：一邊 4 位、另一邊 ${sizeB} 位。`,
+    { alts: [sizeB === 5 ? 'Four people here, five people there.' : 'Four people here, four people there.', `Four over here. ${nB} over there.`] }), { host: 'point' });
   push(L('teams'), { host: 'point' });
   // 02 手環
   push(L('helpers'), { host: 'wave', side: { kind: 'basket' } });
@@ -157,8 +157,8 @@ function genHost(opts = {}) {
     const qn = 1 + rnd(3);
     if (has('qintro', r)) push(D('qintro', '06 出題', 'base', `Question ${numWord(qn)}! Look at this logo!`, `第${NUM_ZH[qn]}題！請看這個 Logo！`, `第 ${qn} 題！舉起黑白題卡，請大家看這個 Logo。`), { host: 'card' });
     push(D('hascolors', '06 出題', 'base', `This logo has ${nw} colors.`, `這個 Logo 有 ${n} 個顏色。`, `題卡上寫著 ${n} colors。告訴大家這個 Logo 有幾個顏色。`), { host: 'card' });
-    push(D('upto', '06 出題', 'base', `Raise up to ${nw}!`, `最多舉 ${n} 個！`, `提醒大家：這題每隊最多只能舉 ${n} 隻手。`,
-      { alts: [`Each team can raise up to ${nw} hands.`, `${cap(nw)} hands per team, at most!`] }), { host: 'point' });
+    push(D('upto', '06 出題', 'base', `Each team can raise up to ${nw} hands.`, `每隊最多可以舉${NUM_ZH[n]}隻手。`, `提醒大家：這題每隊最多只能舉 ${n} 隻手。`,
+      { alts: [`${cap(nw)} hands per team, at most!`, `Raise up to ${nw}!`] }), { host: 'point' });
     if (has('sec10', r)) push(L('sec10'), { host: 'point' });
     if (has('readygo2', r)) push(L('readygo2'), { host: 'cheer' });
     W.raise = { colors: c.colors };
@@ -171,7 +171,7 @@ function genHost(opts = {}) {
     if (has('check', r)) push(L('check'), { host: 'card' });
     W.side = { kind: 'card', card: c.code, reveal: true };
     if (ex(.3)) push(L('hereitis'), { host: 'card' });
-    push(D('colors', '07 公布', 'base', colorsSentence(c.colors), colorsZh(c.colors) + '！', '翻開題卡背面了！照著背面的顏色，念出這題的答案。', { mode: 'colors', colorKeys: c.colors }), { host: 'point' });
+    push(D('colors', '07 公布', 'base', 'The colors are ' + colorsSentence(c.colors).toLowerCase(), '答案是' + colorsZh(c.colors) + '！', '翻開題卡背面了！照著背面的顏色，念出這題的答案。', { mode: 'colors', colorKeys: c.colors }), { host: 'point' });
     if (ex(.3)) push(L('count'), { host: 'point' });
     push(D('brand', '07 公布', 'base', `This is ${c.say}.`, `這是${c.zh}。`, '介紹這是哪個品牌（看題卡背面的名字）。', { mode: 'brand', alts: c.alts.map(a => `This is ${a}.`), fact: c.fact }), { host: 'point' });
     if (c.origin && ex(.5)) push(L(c.origin === 'tw' ? 'twbrand' : 'jpbrand'), { host: 'point' });
@@ -184,8 +184,8 @@ function genHost(opts = {}) {
     const ann = r === 1 ? ['A', 'B'] : [pick(['A', 'B'])];
     for (const t of ann) {
       const p = t === 'A' ? pa : pb;
-      push(D('points', '08 計分', 'base', `Team ${t} gets ${numWord(p)} point${p > 1 ? 's' : ''}!`, `${t} 隊得 ${p} 分！`, `${t} 隊這題答對了 ${p} 個顏色，宣布 ${t} 隊得幾分。`,
-        { alts: [`${cap(numWord(p))} point${p > 1 ? 's' : ''} for Team ${t}!`] }), { host: 'cheer', side: { kind: 'scoreboard' } });
+      push(D('points', '08 計分', 'base', `${cap(numWord(p))} point${p > 1 ? 's' : ''} for Team ${t}!`, `${t} 隊得 ${p} 分！`, `${t} 隊這題答對了 ${p} 個顏色，宣布 ${t} 隊得幾分。`,
+        { alts: [`Team ${t} gets ${numWord(p)} point${p > 1 ? 's' : ''}!`] }), { host: 'cheer', side: { kind: 'scoreboard' } });
     }
     if (ex(.25)) push(L('allright'), { host: 'clap', mood: 'happy', side: { kind: 'scoreboard' } });
     if (ex(.2)) push(L('bothgreat'), { host: 'clap', mood: 'happy', side: { kind: 'scoreboard' } });
@@ -194,8 +194,8 @@ function genHost(opts = {}) {
     if (r < 3) {
       if (ex(.3)) push(L('seescores'), { host: 'point', side: { kind: 'scoreboard' } });
       if (ex(.5)) {
-        push(D('totals', '08 計分', 'ext', `Team A has ${numWord(sa)} points, Team B has ${numWord(sb)}.`, `A 隊 ${sa} 分，B 隊 ${sb} 分。`, `第 ${r} 回合後的分數：A 隊 ${sa} 分、B 隊 ${sb} 分。報一下目前比數。`,
-          { alts: [`Team A has ${numWord(sa)} points. Team B has ${numWord(sb)} points.`, `Team A has ${numWord(sa)} points, Team B has ${numWord(sb)} points.`] }), { host: 'point', side: { kind: 'scoreboard' } });
+        push(D('totals', '08 計分', 'ext', `Team A has ${numWord(sa)} point${sa === 1 ? '' : 's'}. Team B has ${numWord(sb)} point${sb === 1 ? '' : 's'}.`, `A 隊目前 ${sa} 分，B 隊目前 ${sb} 分。`, `第 ${r} 回合後的分數：A 隊 ${sa} 分、B 隊 ${sb} 分。報一下目前比數。`,
+          { alts: [`Team A has ${numWord(sa)} point${sa === 1 ? '' : 's'}, Team B has ${numWord(sb)}.`, `Team A has ${numWord(sa)} point${sa === 1 ? '' : 's'}, Team B has ${numWord(sb)} point${sb === 1 ? '' : 's'}.`] }), { host: 'point', side: { kind: 'scoreboard' } });
         if (sa === sb && ex(.8)) push(L('tied'), { host: 'cheer', side: { kind: 'scoreboard' } });
         else if (Math.abs(sa - sb) <= 2 && ex(.8)) push(L('close'), { host: 'cheer', side: { kind: 'scoreboard' } });
       }
@@ -227,8 +227,8 @@ function genHost(opts = {}) {
     if (ex(.3)) push(L('almostthere', { sit: `${winner} 隊只差一個顏色了！` }), { host: 'cheer', raise: { colors: tc.colors } });
     push(D('firstright', '09 最終', 'base', `Team ${winner} got all the colors right first!`, `${winner} 隊最先答對所有顏色！`, `${winner} 隊比較快把所有顏色都舉對了！宣布結果。`), { host: 'cheer', side: { kind: 'card', card: tc.code, reveal: true } });
   }
-  push(D('winner', '09 最終', 'base', `Team ${winner} wins!`, `${winner} 隊獲勝！`, tie ? `加賽結束，宣布 ${winner} 隊獲勝！` : `最後比數 A 隊 ${sa} 分、B 隊 ${sb} 分。宣布哪一隊贏了！`,
-    { alts: [`And the winner is Team ${winner}!`, `And the winner is... Team ${winner}!`] }), { host: 'cheer', mood: 'happy' });
+  push(D('winner', '09 最終', 'base', `And the winner is... Team ${winner}!`, `獲勝的隊伍是……${winner} 隊！`, tie ? `加賽結束，宣布 ${winner} 隊獲勝！` : `最後比數 A 隊 ${sa} 分、B 隊 ${sb} 分。宣布哪一隊贏了！`,
+    { alts: [`Team ${winner} wins!`, `And the winner is Team ${winner}!`] }), { host: 'cheer', mood: 'happy' });
   push(L('congrats'), { host: 'clap', mood: 'happy' });
   if (ex(.5)) push(L('bighand'), { host: 'clap', mood: 'happy' });
   // 10 頒獎
@@ -273,10 +273,10 @@ function genHelper(opts = {}) {
     W.given = i + 1;
     const focus = { team, i };
     push(D('yournum', '02 手環', 'base',
-      `You are number ${numWord(i + 1)}. ${two ? 'These are your colors.' : 'This is your color.'}`,
-      `你是 ${i + 1} 號，${two ? '這些是你的顏色' : '這是你的顏色'}。`,
-      `輪到${nm}了。他是 ${i + 1} 號，配色卡上是「${colorsZh(b)}」${two ? '兩個' : '一個'}手環。把手環交給他，告訴他號碼和顏色。`,
-      { alts: [two ? 'Here are your colors!' : "Here's your color!", `Number ${numWord(i + 1)}. ${two ? 'Here are your colors!' : "Here's your color!"}`] }), { focus });
+      two ? 'Here are your colors!' : "Here's your color!",
+      two ? '這是你的兩個顏色！' : '這是你的顏色！',
+      `輪到${nm}了，配色卡上他是「${colorsZh(b)}」${two ? '兩個' : '一個'}手環。把手環交給他，告訴他這是他的顏色。`,
+      { alts: [`You are number ${numWord(i + 1)}. ${two ? 'These are your colors.' : 'This is your color.'}`, `Number ${numWord(i + 1)}. ${two ? 'Here are your colors!' : "Here's your color!"}`] }), { focus });
     if (two && !didEach) { didEach = true; push(L('eachhand', { sit: `${nm}拿著兩個手環，不知道要怎麼戴。告訴他左右手各戴一個。` }), { focus }); }
     if (!two && !didEither) { didEither = true; push(L('either', { sit: `${nm}只有一個手環，問你要戴哪一手。告訴他哪一手都可以。` }), { focus }); }
     if (i === 2 && !didLook && ex(.8)) {
@@ -924,7 +924,7 @@ function cheatItemHTML(k) {
   return `<div class="ci">
 <div class="ci-h"><span class="en">${esc(d.en)}</span><button class="iconbtn say" data-say="${esc(d.en)}" aria-label="播放發音">${ic('sound')}</button></div>
 <div class="ci-zh">${esc(d.zh)}</div>
-${alts.length ? `<div class="ci-alt">也可以說：<span class="en">${alts.map(esc).join('　／　')}</span></div>` : ''}
+${alts.length ? `<div class="ci-alt"><span class="ci-alt-l">也可以說</span>${alts.map(a => `<div class="ci-alt-row"><span class="en">${esc(a)}</span><button class="iconbtn say sm" data-say="${esc(a)}" aria-label="播放發音">${ic('sound')}</button></div>`).join('')}</div>` : ''}
 ${d.note ? `<div class="ci-note">${esc(d.note)}</div>` : ''}
 <div class="ci-tags"><span class="pill ${d.type === 'base' ? 'tagbase' : 'tagext'}">${d.type === 'base' ? '基本句' : '延伸句'}</span>${d.role === 'helper' ? '<span class="pill" style="background:var(--sky)">小幫手</span>' : ''}${DYN_CHEAT[k] ? '<span class="pill">數字／顏色會換</span>' : ''}</div>
 </div>`;
