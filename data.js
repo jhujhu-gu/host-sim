@@ -99,7 +99,7 @@ const LINES = {
 
   // ===== 06 出題與作答 =====
   sec10:     { role: 'host', sec: '06 出題', type: 'base', en: "You have ten seconds.", zh: "你們有 10 秒。", alts: ["You have 10 seconds!", "You have ten seconds!"], sit: '告訴大家作答時間有多長。' },
-  readygo2:  { role: 'host', sec: '06 出題', type: 'base', en: 'Ready? Go!', zh: '準備好了嗎？開始！', sit: '題目說明完了，喊一聲開始作答！' },
+  readygo2:  { role: 'host', sec: '06 出題', type: 'base', en: 'Ready... set... go!', zh: '預備……開始！', alts: ['Ready? Go!', 'Three, two, one, go!', 'Ready, set, go!'], note: '每題都要說！說 set 時手舉高，go 時手往下揮或拍手，從這裡開始計時 10 秒', sit: '題目說明完了，學生還不知道什麼時候開始。用一句口號宣布開始作答、開始計時！' },
   keepup:    { role: 'host', sec: '06 出題', type: 'base', en: "Three, two, one! Time's up! Keep your hands up!", zh: "三、二、一！時間到！手先不要放下！", alts: ["Three, two, one! Keep your hands up!"], sit: '時間快到了，倒數三秒，請大家手先舉著不要放。' },
   nochanges: { role: 'host', sec: '06 出題', type: 'ext', en: 'No more changes!', zh: '不可以再更改答案囉！', sit: '時間到了，狐狸還想偷偷換手。告訴大家不能再改答案了。' },
   think:     { role: 'host', sec: '06 出題', type: 'ext', en: 'Think carefully!', zh: '仔細想想！', sit: '有幾隻小動物還在猶豫，提醒他們仔細想想。' },
@@ -192,22 +192,22 @@ const LINES = {
 
 // 小抄裡的「會變動的句子」示範（實際練習時數字、顏色、品牌會隨機換）
 const DYN_CHEAT = {
-  grouping:  { sec: '01 開場', type: 'base', role: 'host', en: 'Four over here, please. Five over there, please.', zh: '請四位到這邊，五位到那邊。', alts: ['Four people here, five people there.'], note: '8 人時兩邊都說 Four' },
-  yournum:   { sec: '02 手環', type: 'base', role: 'helper', en: 'Here are your colors!', zh: '這是你的兩個顏色！', alts: ["Here's your color!", 'You are number one. These are your colors.'], note: '兩色用 Here are your colors，一色用 Here\'s your color' },
-  round1:    { sec: '05 觀察', type: 'base', role: 'host', en: 'Round one! Each logo has two colors.', zh: '第一回合！每個 Logo 都有兩個顏色。', alts: ['Round one! Two-color logos.'] },
-  round2:    { sec: '05 觀察', type: 'base', role: 'host', en: 'Round two! Each logo has three or four colors.', zh: '第二回合！每個 Logo 有三個或四個顏色。', alts: ['Round two! Three or four colors.'] },
-  round3:    { sec: '05 觀察', type: 'base', role: 'host', en: 'Round three! Each logo has four to six colors.', zh: '第三回合！每個 Logo 有四到六個顏色。', alts: ['Round three! The hardest round!'] },
-  qintro:    { sec: '06 出題', type: 'base', role: 'host', en: 'Question one! Look at this logo!', zh: '第一題！請看這個 Logo！', note: 'one / two / three 換題號' },
-  hascolors: { sec: '06 出題', type: 'base', role: 'host', en: 'This logo has three colors.', zh: '這個 Logo 有三個顏色。', note: 'two / three / four / five / six colors' },
-  upto:      { sec: '06 出題', type: 'base', role: 'host', en: 'Each team can raise up to three hands.', zh: '每隊最多可以舉三隻手。', alts: ['Three hands per team, at most!', 'Raise up to three!'], note: '熟悉後可簡化成 Three hands per team, at most!' },
-  onlyn:     { sec: '06 出題', type: 'ext', role: 'host', en: 'Only three hands, please.', zh: '只能舉三隻手喔。', note: '數字跟著顏色數改' },
-  colors:    { sec: '07 公布', type: 'base', role: 'host', en: 'The colors are red and white!', zh: '答案是紅色和白色！', alts: ['Red and white!'], note: '照題卡背面念出所有顏色' },
-  brand:     { sec: '07 公布', type: 'base', role: 'host', en: 'This is PX Mart.', zh: '這是全聯。', note: 'This is + 品牌名稱，接著念 Fun Fact' },
-  points:    { sec: '08 計分', type: 'base', role: 'host', en: 'Two points for Team A!', zh: 'A 隊得兩分！', alts: ['One point for Team B!', 'Both teams get three points!', 'Team A gets two points!'] },
-  endround:  { sec: '08 計分', type: 'base', role: 'host', en: "That's the end of round one!", zh: '第一回合結束！' },
-  totals:    { sec: '08 計分', type: 'ext', role: 'host', en: 'Team A has five points. Team B has four points.', zh: 'A 隊目前五分，B 隊目前四分。', alts: ['Team A has five points, Team B has four.'] },
-  winner:    { sec: '09 最終', type: 'base', role: 'host', en: 'And the winner is... Team A!', zh: '獲勝的隊伍是……A 隊！', alts: ['Team A wins!'] },
-  firstright:{ sec: '09 最終', type: 'base', role: 'host', en: 'Team A got all the colors right first!', zh: 'A 隊最先答對所有顏色！', note: '加賽時用' },
+  grouping:  { sec: '01 開場', type: 'base', role: 'host', en: 'Four over here, please. Five over there, please.', zh: '請四位到這邊，五位到那邊。', alts: ['Four people here, five people there.'], note: '8 人時兩邊都說 Four', sit: '一共 9 位同學，用手勢把他們分成兩邊：一邊 4 位、另一邊 5 位。' },
+  yournum:   { sec: '02 手環', type: 'base', role: 'helper', en: 'Here are your colors!', zh: '這是你的兩個顏色！', alts: ["Here's your color!", 'You are number one. These are your colors.'], note: '兩色用 Here are your colors，一色用 Here\'s your color', sit: '（小幫手）把兩個顏色的手環交給同學，告訴他這是他的顏色。' },
+  round1:    { sec: '05 觀察', type: 'base', role: 'host', en: 'Round one! Each logo has two colors.', zh: '第一回合！每個 Logo 都有兩個顏色。', alts: ['Round one! Two-color logos.'], sit: '第一回合開始了！宣布回合，並說明這回合的 Logo 都是兩個顏色。' },
+  round2:    { sec: '05 觀察', type: 'base', role: 'host', en: 'Round two! Each logo has three or four colors.', zh: '第二回合！每個 Logo 有三個或四個顏色。', alts: ['Round two! Three or four colors.'], sit: '第二回合開始了！宣布回合，並說明這回合的 Logo 有三到四個顏色。' },
+  round3:    { sec: '05 觀察', type: 'base', role: 'host', en: 'Round three! Each logo has four to six colors.', zh: '第三回合！每個 Logo 有四到六個顏色。', alts: ['Round three! The hardest round!'], sit: '第三回合開始了！宣布回合，並說明這回合的 Logo 有四到六個顏色。' },
+  qintro:    { sec: '06 出題', type: 'base', role: 'host', en: 'Question one! Look at this logo!', zh: '第一題！請看這個 Logo！', note: 'one / two / three 換題號', sit: '第 1 題！舉起黑白題卡，請大家看這個 Logo。' },
+  hascolors: { sec: '06 出題', type: 'base', role: 'host', en: 'This logo has three colors.', zh: '這個 Logo 有三個顏色。', note: 'two / three / four / five / six colors', sit: '題卡上寫著 3 colors。告訴大家這個 Logo 有幾個顏色。' },
+  upto:      { sec: '06 出題', type: 'base', role: 'host', en: 'Each team can raise up to three hands.', zh: '每隊最多可以舉三隻手。', alts: ['Three hands per team, at most!', 'Raise up to three!'], note: '熟悉後可簡化成 Three hands per team, at most!', sit: '提醒大家：這題每隊最多只能舉 3 隻手。' },
+  onlyn:     { sec: '06 出題', type: 'ext', role: 'host', en: 'Only three hands, please.', zh: '只能舉三隻手喔。', note: '數字跟著顏色數改', sit: '有一隊舉了 4 隻手，但這題只有 3 個顏色。提醒他們只能舉 3 隻。' },
+  colors:    { sec: '07 公布', type: 'base', role: 'host', en: 'The colors are red and white!', zh: '答案是紅色和白色！', alts: ['Red and white!'], note: '照題卡背面念出所有顏色', sit: '翻開題卡背面，答案是紅色和白色。念出答案。' },
+  brand:     { sec: '07 公布', type: 'base', role: 'host', en: 'This is PX Mart.', zh: '這是全聯。', note: 'This is + 品牌名稱，接著念 Fun Fact', sit: '介紹這個品牌：全聯（PX Mart）。' },
+  points:    { sec: '08 計分', type: 'base', role: 'host', en: 'Two points for Team A!', zh: 'A 隊得兩分！', alts: ['One point for Team B!', 'Both teams get three points!', 'Team A gets two points!'], sit: 'A 隊這題答對兩個顏色，宣布 A 隊得幾分。' },
+  endround:  { sec: '08 計分', type: 'base', role: 'host', en: "That's the end of round one!", zh: '第一回合結束！', sit: '第一回合的題目都出完了，宣布這回合結束。' },
+  totals:    { sec: '08 計分', type: 'ext', role: 'host', en: 'Team A has five points. Team B has four points.', zh: 'A 隊目前五分，B 隊目前四分。', alts: ['Team A has five points, Team B has four.'], sit: '報一下目前比數：A 隊 5 分、B 隊 4 分。' },
+  winner:    { sec: '09 最終', type: 'base', role: 'host', en: 'And the winner is... Team A!', zh: '獲勝的隊伍是……A 隊！', alts: ['Team A wins!'], sit: '最後 A 隊分數比較高，製造一點懸念再宣布 A 隊獲勝！' },
+  firstright:{ sec: '09 最終', type: 'base', role: 'host', en: 'Team A got all the colors right first!', zh: 'A 隊最先答對所有顏色！', note: '加賽時用', sit: '加賽中，A 隊比較快把所有顏色都舉對了！宣布結果。' },
 };
 
 // 小抄的分頁與排列順序（key 可以是 LINES 或 DYN_CHEAT 的名稱）

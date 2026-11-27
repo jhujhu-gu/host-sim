@@ -40,6 +40,8 @@ const ICON = {
   next: '<path d="M5 12h14"/><path d="M13 6l6 6-6 6"/>',
   skip: '<path d="M5 5l8 7-8 7z"/><line x1="18" y1="5" x2="18" y2="19"/>',
   send: '<path d="M4 12l16-8-6 16-3-7z"/>',
+  cards: '<rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 6V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-2"/>',
+  check: '<path d="M5 12l5 5 9-10"/>',
   back: '<path d="M15 6l-6 6 6 6"/>',
   book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 19V5"/><path d="M8 7h8"/><path d="M8 11h6"/>',
   grid: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
@@ -129,7 +131,7 @@ function genHost(opts = {}) {
   // 05–08 三回合
   const cards = { 1: pick(CARDS.filter(c => c.round === '1')), 2: pick(CARDS.filter(c => c.round === '2')), 3: pick(CARDS.filter(c => c.round === '3')) };
   const dist = {};
-  ['qintro', 'look20', 'left10', 'timesup', 'sec10', 'readygo2', 'keepup', 'toomany', 'handsdown', 'check', 'endround'].forEach(k => { dist[k] = 1 + rnd(3); });
+  ['qintro', 'look20', 'left10', 'timesup', 'sec10', 'keepup', 'toomany', 'handsdown', 'check', 'endround'].forEach(k => { dist[k] = 1 + rnd(3); });
   const has = (k, r) => opts.all ? r === 1 || (k === 'endround' && r === 2) : dist[k] === r;
   let sa = 0, sb = 0, saidHarder = false;
   W.score = { A: 0, B: 0 };
@@ -160,7 +162,7 @@ function genHost(opts = {}) {
     push(D('upto', '06 出題', 'base', `Each team can raise up to ${nw} hands.`, `每隊最多可以舉${NUM_ZH[n]}隻手。`, `提醒大家：這題每隊最多只能舉 ${n} 隻手。`,
       { alts: [`${cap(nw)} hands per team, at most!`, `Raise up to ${nw}!`] }), { host: 'point' });
     if (has('sec10', r)) push(L('sec10'), { host: 'point' });
-    if (has('readygo2', r)) push(L('readygo2'), { host: 'cheer' });
+    push(L('readygo2'), { host: 'cheer' });
     W.raise = { colors: c.colors };
     for (const k of (opts.all ? duringQ : shuffle(duringQ).slice(0, 2))) if (ex(.35)) push(L(k), { host: 'point' });
     if (has('keepup', r)) push(L('keepup'), { host: 'cheer' });
@@ -866,6 +868,7 @@ ${chips.length ? `<h3>常犯小錯</h3><div class="chips">${chips.map(([k, n]) =
    ========================================================= */
 let SHOW_SEC = false;
 function renderStart() {
+  CARD = null;
   try { if (rec) rec.abort(); } catch (e) { /* ignore */ }
   S = { role: ROLE, listening: false };
   const hist = DB.history[ROLE] || [];
@@ -874,7 +877,10 @@ function renderStart() {
   app.innerHTML = `<div class="start">
 <div class="hero"><span class="en muted" style="font-size:13px;letter-spacing:1px;font-weight:600">BRAND COLOR CHALLENGE</span><h1>關主模擬器</h1><span class="muted" style="font-size:14px">熊本北小動物訪問團來囉！12/17</span></div>
 <div class="crew">${['shiba-r2', 'cat-happy', 'rabbit-r2', 'fox-happy', 'penguin-happy'].map(n => `<img src="${IMG(n)}" alt="">`).join('')}</div>
-<button class="btn butter" id="openCheat" style="min-height:54px;font-size:16px">${ic('book')}話術小抄：沒時間玩，快速複習</button>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+<button class="btn pink" id="openCards" style="min-height:64px;font-size:16px;flex-direction:column;gap:2px">${ic('cards')}口說卡片<small style="font-weight:400;font-size:12px">說出來→翻卡對答案</small></button>
+<button class="btn butter" id="openCheat" style="min-height:64px;font-size:16px;flex-direction:column;gap:2px">${ic('book')}話術小抄<small style="font-weight:400;font-size:12px">快速複習／現場提示</small></button>
+</div>
 <b>選擇你的角色</b>
 <div class="roles">
 <button class="role" data-role="host" aria-pressed="${ROLE === 'host'}"><img src="${IMG('host-wave')}" alt=""><b>關主</b><small>主持整關：開場、規則、<br>出題、計分、頒獎</small></button>
@@ -886,7 +892,7 @@ function renderStart() {
 <div style="display:flex;gap:8px"><button class="btn" id="mt" style="flex:1">${ic('mic')}${DB.micMode ? '重新測試' : '開始測試'}</button>${DB.micMode !== 'keyboard' ? '<button class="btn" id="kb" style="flex:1">直接用鍵盤聽寫</button>' : ''}</div>
 <span class="muted" style="font-size:12px">可以照台詞說，也可以自由多說一點：台詞的內容有說到，多加的話不扣分。</span>
 </div>
-<b>練習模式</b>
+<b>情境遊戲（打字／語音作答）</b>
 <div class="modes">
 <button class="btn mode" data-mode="full">${ic('star')}<span>完整一關<small>${fullN}</small></span></button>
 <button class="btn mode" data-mode="quick">${ic('clock')}<span>快速抽考<small>隨機 10 題，零碎時間用</small></span></button>
@@ -905,10 +911,11 @@ ${lastH ? `<div class="card" style="display:flex;align-items:center;justify-cont
   if ($('#secMode')) $('#secMode').onclick = () => { SHOW_SEC = !SHOW_SEC; renderStart(); if (SHOW_SEC) $('.secchips').scrollIntoView({ block: 'nearest' }); };
   document.querySelectorAll('.secchip').forEach(b => b.onclick = () => startRun('section', b.dataset.sec));
   $('#openCheat').onclick = () => renderCheat({ from: 'start' });
+  $('#openCards').onclick = renderCardSetup;
   $('#mt').onclick = micTest;
   if ($('#kb')) $('#kb').onclick = () => setKeyboardMode('manual');
   $('#gramOn').onchange = e => { DB.grammarOn = e.target.checked; save(); };
-  $('#clear').onclick = () => { if (confirm('確定要清除所有練習紀錄和貼紙嗎？')) { DB = { history: { host: [], helper: [] }, stats: {}, stickers: [], autoSpeak: DB.autoSpeak, grammarOn: DB.grammarOn }; save(); renderStart(); toast('紀錄已清除'); } };
+  $('#clear').onclick = () => { if (confirm('確定要清除所有練習紀錄和貼紙嗎？')) { DB = { history: { host: [], helper: [] }, stats: {}, stickers: [], cards: {}, autoSpeak: DB.autoSpeak, grammarOn: DB.grammarOn }; save(); renderStart(); toast('紀錄已清除'); } };
   window.scrollTo(0, 0);
 }
 
@@ -963,9 +970,10 @@ function renderCheat(opts) {
 </div>
 ${q ? '' : `<div class="chtabs" role="tablist">${tabs.map((t, i) => `<button role="tab" aria-selected="${i === CH.tab}" class="chtab${i === CH.tab ? ' on' : ''}" data-t="${i}">${esc(t)}</button>`).join('')}</div>`}
 <div class="chlist">${body}</div>
-${CH.from === 'play' ? `<button class="btn pink" id="chResume" style="width:100%;margin-top:14px">回到練習</button>` : `<button class="btn pink" id="chPractice" style="width:100%;margin-top:14px">${ic('star')}練習${q || CH.tab >= CHEAT_TABS.length ? '' : '「' + CHEAT_TABS[CH.tab].name + '」這一段'}</button>`}
+${CH.from === 'play' ? `<button class="btn pink" id="chResume" style="width:100%;margin-top:14px">回到練習</button>` : CH.from === 'card' ? `<button class="btn pink" id="chResume" style="width:100%;margin-top:14px">回到口說卡片</button>` : (!q && CH.tab < CHEAT_TABS.length ? `<div style="display:flex;gap:8px;margin-top:14px"><button class="btn pink" id="chCards" style="flex:1">${ic('cards')}用卡片練這一段</button><button class="btn" id="chPractice" style="flex:1">${ic('star')}情境遊戲練這段</button></div>` : '')}
 <div class="footer">© 2026 啾啾菇</div></div>`;
-  const back = () => { if (CH.from === 'play' && S.steps) renderPlay(); else renderStart(); };
+  const back = () => { if (CH.from === 'play' && S.steps) renderPlay(); else if (CH.from === 'card' && CARD) renderCard(); else renderStart(); };
+  if ($('#chCards')) $('#chCards').onclick = () => startCards({ sec: CHEAT_TABS[CH.tab].name, baseOnly: CH.baseOnly, role: CH.role });
   $('#chBack').onclick = back;
   if ($('#chResume')) $('#chResume').onclick = back;
   if ($('#chPractice')) $('#chPractice').onclick = () => { if (!q && CH.tab < CHEAT_TABS.length) { ROLE = CHEAT_TABS[CH.tab].name === '02 手環' && CH.role === 'helper' ? 'helper' : 'host'; if (ROLE === 'helper') startRun('full'); else startRun('section', CHEAT_TABS[CH.tab].name); } else startRun('quick'); };
@@ -978,7 +986,125 @@ ${CH.from === 'play' ? `<button class="btn pink" id="chResume" style="width:100%
   window.scrollTo(0, 0);
 }
 
+/* =========================================================
+   口說卡片：看情境 → 大聲說 → 翻卡對答案 → 自評
+   ========================================================= */
+let CARD = null;
+let CSET = { scope: 'base', role: 'host', sec: '' };
+function cardPool(f) {
+  if (f.keys) return [...f.keys];
+  const keys = [];
+  CHEAT_TABS.forEach(t => t.keys.forEach(k => {
+    const d = cheatEntry(k); if (!d) return;
+    if (f.sec && t.name !== f.sec) return;
+    if (f.baseOnly && d.type !== 'base') return;
+    if (f.role && f.role !== 'all' && (d.role || 'host') !== f.role) return;
+    keys.push(k);
+  }));
+  return keys;
+}
+function startCards(f) {
+  const pool = cardPool(f);
+  if (!pool.length) { toast('這個範圍沒有句子，換個條件試試'); return; }
+  DB.cards = DB.cards || {};
+  const w = k => { const c = DB.cards[k]; if (!c) return .35 + Math.random() * .3; return Math.min(c.streak, 4) / 4 * .8 - (c.bad ? .3 : 0) + Math.random() * .3; };
+  const n = f.sec || f.keys ? pool.length : Math.min(20, pool.length);
+  const ordered = f.sec ? pool : [...pool].sort((a, b) => w(a) - w(b)).slice(0, n);
+  CARD = { f, queue: ordered, idx: 0, flipped: false, showZh: false, known: 0, again: [], tries: {}, t0: Date.now() };
+  renderCard();
+}
+function renderCardSetup() {
+  try { if (rec) rec.abort(); } catch (e) { /* ignore */ }
+  const chip = (grp, val, label) => `<button class="pill cset${CSET[grp] === val ? ' on' : ''}" data-g="${grp}" data-v="${val}">${label}</button>`;
+  const cnt = cardPool({ sec: CSET.sec, baseOnly: CSET.scope === 'base', role: CSET.role }).length;
+  const weak = Object.entries(DB.cards || {}).filter(([, c]) => c.bad).map(([k]) => k).filter(k => cheatEntry(k));
+  app.innerHTML = `<div class="start">
+<div class="topbar"><div class="l"><button class="iconbtn" id="csBack" aria-label="返回">${ic('back')}</button><h2>口說卡片</h2></div></div>
+<div class="card" style="display:flex;flex-direction:column;gap:6px"><b>怎麼練</b><span style="font-size:14px;line-height:1.7">① 看情境，<b>大聲說出英文</b>（不用打字、不用辨識）<br>② 點卡片翻面，對答案、聽發音<br>③ 自己按「會了」或「不熟」，不熟的會再出現</span></div>
+<b>句子範圍</b><div class="chfilters">${chip('scope', 'base', '只練基本句')}${chip('scope', 'all', '全部句子')}</div>
+<b>角色</b><div class="chfilters">${chip('role', 'host', '關主')}${chip('role', 'helper', '小幫手')}${chip('role', 'all', '全部')}</div>
+<b>段落</b><div class="chfilters">${chip('sec', '', '全部段落（隨機 20 張）')}${CHEAT_TABS.map(t => chip('sec', t.name, t.name)).join('')}</div>
+<button class="btn pink" id="csGo" style="min-height:54px;font-size:16px">${ic('cards')}開始（${CSET.sec ? cnt : Math.min(20, cnt)} 張）</button>
+${weak.length ? `<button class="btn" id="csWeak">${ic('target')}只練「不熟」的句子（${weak.length} 張）</button>` : ''}
+<div class="footer">© 2026 啾啾菇</div></div>`;
+  $('#csBack').onclick = renderStart;
+  document.querySelectorAll('.cset').forEach(b => b.onclick = () => { CSET[b.dataset.g] = b.dataset.v; renderCardSetup(); });
+  $('#csGo').onclick = () => startCards({ sec: CSET.sec, baseOnly: CSET.scope === 'base', role: CSET.role });
+  if ($('#csWeak')) $('#csWeak').onclick = () => startCards({ keys: shuffle(weak) });
+  window.scrollTo(0, 0);
+}
+function cardMark(known) {
+  const k = CARD.queue[CARD.idx];
+  const c = DB.cards[k] || (DB.cards[k] = { streak: 0, bad: false, n: 0 });
+  c.n++;
+  if (known) { c.streak++; c.bad = false; if (!CARD.tries[k]) CARD.known++; }
+  else {
+    c.streak = 0; c.bad = true;
+    CARD.tries[k] = (CARD.tries[k] || 0) + 1;
+    if (!CARD.again.includes(k)) CARD.again.push(k);
+    if (CARD.tries[k] <= 2) CARD.queue.splice(Math.min(CARD.idx + 4, CARD.queue.length), 0, k);
+  }
+  save();
+  CARD.idx++; CARD.flipped = false; CARD.showZh = false;
+  renderCard();
+}
+function renderCard() {
+  if (!CARD) { renderCardSetup(); return; }
+  if (CARD.idx >= CARD.queue.length) { renderCardDone(); return; }
+  const k = CARD.queue[CARD.idx]; const d = cheatEntry(k);
+  const total = CARD.queue.length;
+  const ani = ALL_ANIMALS[[...k].reduce((a, ch) => a + ch.charCodeAt(0), 0) % ALL_ANIMALS.length];
+  const alts = (d.alts || []).filter(a => a !== d.en);
+  const front = `<div class="fc-front">
+<span class="fc-say">${ic('mic')}大聲說出來！</span>
+${CARD.showZh ? `<div class="fc-zh">${esc(d.zh)}</div>` : `<button class="btn" id="fcZh" style="min-height:40px;font-size:14px">${ic('bulb')}看中文提示</button>`}
+<span class="muted" style="font-size:13px">說完點卡片翻面</span></div>`;
+  const back = `<div class="fc-back">
+<div class="ci-h"><span class="en fc-en">${esc(d.en)}</span><button class="iconbtn say" data-say="${esc(d.en)}" aria-label="播放發音">${ic('sound')}</button></div>
+<div class="ci-zh" style="font-size:15px">${esc(d.zh)}</div>
+${alts.length ? `<div class="ci-alt"><span class="ci-alt-l">也可以說</span>${alts.map(a => `<div class="ci-alt-row"><span class="en">${esc(a)}</span><button class="iconbtn say sm" data-say="${esc(a)}" aria-label="播放發音">${ic('sound')}</button></div>`).join('')}</div>` : ''}
+${d.note ? `<div class="ci-note">${esc(d.note)}</div>` : ''}</div>`;
+  app.innerHTML = `<div class="cardwrap">
+<div class="topbar"><div class="l"><button class="iconbtn" id="fcHome" aria-label="結束">${ic('home')}</button><h2>口說卡片</h2></div>
+<div class="r"><div class="prog"><b style="color:var(--ink)">${CARD.idx + 1} / ${total}</b><div class="bar"><i style="width:${CARD.idx / total * 100}%"></i></div></div><button class="iconbtn" id="fcCheat" aria-label="話術小抄">${ic('book')}</button></div></div>
+<div class="fc${CARD.flipped ? ' flipped' : ''}" id="fc" role="button" tabindex="0" aria-label="${CARD.flipped ? '卡片背面' : '點一下翻卡'}">
+<div class="fc-top"><img src="${IMG(ani + (CARD.flipped ? '-happy' : '-n'))}" alt=""><div style="display:flex;gap:6px;flex-wrap:wrap"><span class="pill" style="background:var(--mint)">${esc(d.sec)}</span><span class="pill ${d.type === 'base' ? 'tagbase' : 'tagext'}">${d.type === 'base' ? '基本句' : '延伸句'}</span>${d.role === 'helper' ? '<span class="pill" style="background:var(--sky)">小幫手</span>' : ''}</div></div>
+<p class="fc-sit">${esc(d.sit || d.zh)}</p>
+${CARD.flipped ? back : front}
+</div>
+${CARD.flipped ? `<div class="fc-acts"><button class="btn" id="fcAgain">${ic('repeat')}不熟，等等再考</button><button class="btn pink" id="fcKnow">${ic('check')}會了！</button></div>` : `<button class="btn butter" id="fcFlip" style="width:100%;min-height:54px;font-size:16px">翻卡看答案</button>`}
+<div class="footer">© 2026 啾啾菇</div></div>`;
+  $('#fcHome').onclick = () => { if (CARD.idx > 0) renderCardDone(); else renderCardSetup(); };
+  $('#fcCheat').onclick = () => renderCheat({ from: 'card' });
+  const flip = () => { if (CARD.flipped) return; CARD.flipped = true; renderCard(); if (DB.autoSpeak !== false) speak(d.en); };
+  $('#fc').onclick = e => { if (e.target.closest('button')) return; flip(); };
+  if ($('#fcFlip')) $('#fcFlip').onclick = flip;
+  if ($('#fcZh')) $('#fcZh').onclick = e => { e.stopPropagation(); CARD.showZh = true; renderCard(); };
+  if ($('#fcAgain')) { $('#fcAgain').onclick = () => cardMark(false); $('#fcKnow').onclick = () => cardMark(true); }
+  document.querySelectorAll('[data-say]').forEach(b => b.onclick = e => { e.stopPropagation(); speak(b.dataset.say); });
+}
+function renderCardDone() {
+  const seen = CARD.idx; const again = CARD.again;
+  const secs = Math.round((Date.now() - CARD.t0) / 1000);
+  app.innerHTML = `<div class="report">
+<div class="head"><h1>卡片練習完成</h1><span class="pill" style="background:var(--butter)">${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}</span></div>
+<div class="card" style="display:flex;align-items:center;gap:12px"><img src="${IMG(pick(ALL_ANIMALS) + '-happy')}" alt="" style="width:64px"><div class="stats" style="flex:1"><div class="stat"><b>${CARD.known}</b><small>一次就會</small></div><div class="stat"><b>${again.length}</b><small>不熟</small></div><div class="stat"><b>${seen}</b><small>翻過的卡</small></div></div></div>
+${again.length ? `<h3>不熟的句子</h3>${again.map(k => { const d = cheatEntry(k); return `<div class="ci"><div class="ci-h"><span class="en">${esc(d.en)}</span><button class="iconbtn say" data-say="${esc(d.en)}" aria-label="播放發音">${ic('sound')}</button></div><div class="ci-zh">${esc(d.zh)}</div></div>`; }).join('')}` : '<div class="ci">這輪全部一次就會，太厲害了！</div>'}
+<div style="display:flex;gap:8px">
+${again.length ? `<button class="btn pink" id="cdAgain" style="flex:1">${ic('target')}只練不熟的</button>` : ''}
+<button class="btn mint" id="cdMore" style="flex:1">${ic('repeat')}再練一輪</button>
+<button class="btn" id="cdHome" aria-label="回首頁">${ic('home')}</button></div>
+<div class="footer">© 2026 啾啾菇</div></div>`;
+  const f = CARD.f;
+  if ($('#cdAgain')) $('#cdAgain').onclick = () => startCards({ keys: shuffle(again) });
+  $('#cdMore').onclick = () => startCards(f);
+  $('#cdHome').onclick = renderStart;
+  document.querySelectorAll('[data-say]').forEach(b => b.onclick = () => speak(b.dataset.say));
+  window.scrollTo(0, 0);
+}
+
 document.addEventListener('keydown', e => {
+  if (CARD && $('#fc') && (e.key === ' ' || e.key === 'Enter') && document.activeElement.tagName !== 'INPUT') { e.preventDefault(); if (!CARD.flipped) $('#fc').click(); return; }
   if (e.key === 'Enter' && S.answered && document.activeElement && document.activeElement.id !== 'say') {
     if (document.activeElement.id === 'next') return; // 按鈕本身會處理
     e.preventDefault(); next();

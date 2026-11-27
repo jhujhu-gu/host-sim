@@ -271,3 +271,19 @@ h1, h2, h3 { margin: 0; }
 .colorchip small { font-size: 12px; color: var(--sub); }
 .secchips { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 2px; }
 .secchips .pill { cursor: pointer; background: #FFFDF8; }
+
+/* ---------- 口說卡片 ---------- */
+.cardwrap { max-width: 560px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+.fc { background: rgba(255,253,248,.92); border: 1.5px solid rgba(255,255,255,.9); outline: 1px solid var(--soft); border-radius: 24px; box-shadow: var(--sh); padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 12px; min-height: 360px; cursor: pointer; }
+.fc.flipped { cursor: default; background: rgba(240,248,243,.95); }
+.fc-top { display: flex; align-items: center; gap: 10px; }
+.fc-top img { width: 58px; height: auto; }
+.fc-sit { margin: 0; font-size: 18px; line-height: 1.7; }
+.fc-front { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; padding: 10px 0; border-top: 1.5px dashed rgba(120,100,90,.25); }
+.fc-say { display: inline-flex; align-items: center; gap: 6px; font-size: 20px; font-weight: 700; color: #C2557A; }
+.fc-zh { font-size: 17px; padding: 8px 14px; border-radius: 12px; background: rgba(246,238,227,.9); }
+.fc-back { display: flex; flex-direction: column; gap: 6px; border-top: 1.5px dashed rgba(120,100,90,.25); padding-top: 12px; }
+.fc-en { font-size: 24px !important; line-height: 1.35; }
+.fc-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.fc-acts .btn { min-height: 56px; font-size: 16px; }
+.chfilters .cset.on { background: var(--pink); font-weight: 700; }
